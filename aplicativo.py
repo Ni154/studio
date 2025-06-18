@@ -229,7 +229,7 @@ def tela_login():
         if validar_login(username, senha):
             st.session_state['usuario_logado'] = username
             st.success(f"Bem vindo, {username}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha incorretos")
 
