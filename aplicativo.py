@@ -250,7 +250,7 @@ def tela_login():
 def logout():
     if 'usuario_logado' in st.session_state:
         del st.session_state['usuario_logado']
-    st.experimental_rerun()
+    st.rerun()
 
 def set_pagina(pagina):
     st.session_state.pagina = pagina
