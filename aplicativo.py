@@ -348,7 +348,7 @@ def pagina_login():
     if st.button("Entrar"):
         if verificar_login(usuario, senha):
             st.session_state["login"] = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha incorretos")
 
