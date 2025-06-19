@@ -683,7 +683,7 @@ def pagina_relatorios():
 def pagina_sair():
     st.session_state["login"] = False
     st.session_state["pagina"] = "Login"
-    st.experimental_rerun()
+    st.rerun()
 
 # --- Layout principal ---
 def main():
