@@ -198,7 +198,7 @@ def pagina_clientes():
                 cancelar_cliente(cid)
                 st.success("Cliente cancelado")
                 st.experimental_rerun()
-                def salvar_servico(nome, descricao, duracao, valor):
+def salvar_servico(nome, descricao, duracao, valor):
     cursor.execute("INSERT INTO servicos (nome, descricao, duracao, valor) VALUES (?, ?, ?, ?)", (nome, descricao, duracao, valor))
     conn.commit()
 
