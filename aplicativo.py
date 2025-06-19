@@ -486,7 +486,9 @@ def pagina_agendamentos():
             servico_dict = {f"{nome} (ID: {sid})": sid for sid, nome, _, _, _ in servicos}
             cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
             servico_sel = st.selectbox("Serviço", list(servico_dict.keys()))
-            data_hora = st.datetime_input("Data e Hora")
+            data_agendamento = st.date_input("Data do Agendamento")
+            hora_agendamento = st.time_input("Hora do Agendamento")
+            data_hora = datetime.combine(data_agendamento, hora_agendamento)
             submitted = st.form_submit_button("Salvar Agendamento")
             if submitted:
                 if data_hora < datetime.now():
