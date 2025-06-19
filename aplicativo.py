@@ -349,7 +349,7 @@ def pagina_login():
         if verificar_login(usuario, senha):
             st.session_state["login"] = True
             st.session_state["pagina"] = "Dashboard"
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha incorretos")
 
