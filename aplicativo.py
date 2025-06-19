@@ -568,7 +568,7 @@ def pagina_login():
         if res and res[0] == senha:
             st.session_state['login'] = True
             st.session_state['usuario'] = usuario
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
 
