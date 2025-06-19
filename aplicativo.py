@@ -484,7 +484,10 @@ def pagina_agendamentos():
         with st.form("form_agendamento", clear_on_submit=True):
             cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1]) if clientes else None
             servico = st.selectbox("Serviço", servicos, format_func=lambda x: x[1]) if servicos else None
-            data_hora = st.datetime_input("Data e Hora")
+            from datetime import datetime
+            data = st.date_input("Data")
+            hora = st.time_input("Hora")
+            data_hora = datetime.combine(data, hora)                 
             submitted = st.form_submit_button("Agendar")
             if submitted:
                 if cliente and servico:
