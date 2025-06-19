@@ -518,41 +518,95 @@ def pagina_agendamentos():
 
 def pagina_vendas():
     st.title("Vendas")
+    aplicar_estilos()
 
-    clientes = carregar_clientes(ativos=True)
+    if "carrinho_servicos" not in st.session_state:
+        st.session_state.carrinho_servicos = []
+    if "carrinho_produtos" not in st.session_state:
+        st.session_state.carrinho_produtos = []
+
+    clientes = carregar_clientes()
     servicos = carregar_servicos()
     produtos = carregar_produtos()
 
-    with st.expander("Registrar Venda de Serviço"):
-        with st.form("form_venda_servico", clear_on_submit=True):
-            cliente_dict = {f"{nome} (ID: {cid})": cid for cid, nome, _ in clientes}
-            servico_dict = {f"{nome} (ID: {sid})": sid for sid, nome, _, _, _ in servicos}
-            cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
-            servico_sel = st.selectbox("Serviço", list(servico_dict.keys()))
-            valor = st.number_input("Valor R$", min_value=0.0, format="%.2f")
-            forma_pagamento = st.selectbox("Forma de Pagamento", ["Dinheiro", "Cartão", "Pix"])
-            submitted = st.form_submit_button("Registrar Venda Serviço")
+    aba = st.radio("Tipo de Venda", ["Serviço", "Produto"], horizontal=True)
+
+    if aba == "Serviço" and clientes and servicos:
+        with st.form("form_add_servico"):
+            cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1])
+            servico = st.selectbox("Serviço", servicos, format_func=lambda x: x[1])
+            forma = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão Crédito", "Cartão Débito"])
+            submitted = st.form_submit_button("Adicionar ao Carrinho")
             if submitted:
-                salvar_venda_servico(cliente_dict[cliente_sel], servico_dict[servico_sel], valor, forma_pagamento)
-                st.success("Venda de serviço registrada")
+                # Adiciona ao carrinho
+                st.session_state.carrinho_servicos.append({
+                    "cliente_id": cliente[0],
+                    "cliente_nome": cliente[1],
+                    "servico_id": servico[0],
+                    "servico_nome": servico[1],
+                    "valor": servico[4],
+                    "forma_pagamento": forma
+                })
+                st.success(f"Serviço '{servico[1]}' adicionado ao carrinho.")
+
+        if st.session_state.carrinho_servicos:
+            st.subheader("Carrinho de Serviços")
+            total = 0
+            for i, item in enumerate(st.session_state.carrinho_servicos):
+                st.write(f"{i+1}. {item['servico_nome']} - R$ {item['valor']:.2f} - Cliente: {item['cliente_nome']} - Pagamento: {item['forma_pagamento']}")
+                total += item['valor']
+
+            if st.button("Finalizar Venda de Serviços"):
+                for item in st.session_state.carrinho_servicos:
+                    salvar_venda_servico(item["cliente_id"], item["servico_id"], item["valor"], item["forma_pagamento"])
+                st.session_state.carrinho_servicos.clear()
+                st.success("Todas as vendas de serviços foram registradas com sucesso!")
                 st.experimental_rerun()
 
-    with st.expander("Registrar Venda de Produto"):
-        with st.form("form_venda_produto", clear_on_submit=True):
-            cliente_dict = {f"{nome} (ID: {cid})": cid for cid, nome, _ in clientes}
-            produto_dict = {f"{nome} (ID: {pid})": pid for pid, nome, _, _, _, _ in produtos}
-            cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
-            produto_sel = st.selectbox("Produto", list(produto_dict.keys()))
+    if aba == "Produto" and clientes and produtos:
+        with st.form("form_add_produto"):
+            cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1], key="cliente_produto")
+            produto = st.selectbox("Produto", produtos, format_func=lambda x: x[1])
             quantidade = st.number_input("Quantidade", min_value=1, step=1)
-            forma_pagamento = st.selectbox("Forma de Pagamento Produto", ["Dinheiro", "Cartão", "Pix"])
-            submitted = st.form_submit_button("Registrar Venda Produto")
+            forma = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão Crédito", "Cartão Débito"], key="forma_pagamento_produto")
+            submitted = st.form_submit_button("Adicionar ao Carrinho")
             if submitted:
-                sucesso, msg = salvar_venda_produto(cliente_dict[cliente_sel], produto_dict[produto_sel], quantidade, forma_pagamento)
-                if sucesso:
-                    st.success(msg)
-                    st.experimental_rerun()
+                # Verificar estoque
+                if produto[5] < quantidade:
+                    st.warning(f"Estoque insuficiente para '{produto[1]}'. Disponível: {produto[5]}")
                 else:
-                    st.error(msg)
+                    # Adiciona ao carrinho
+                    st.session_state.carrinho_produtos.append({
+                        "cliente_id": cliente[0],
+                        "cliente_nome": cliente[1],
+                        "produto_id": produto[0],
+                        "produto_nome": produto[1],
+                        "quantidade": quantidade,
+                        "valor_unitario": produto[4],
+                        "valor_total": produto[4] * quantidade,
+                        "forma_pagamento": forma
+                    })
+                    st.success(f"Produto '{produto[1]}' (x{quantidade}) adicionado ao carrinho.")
+
+        if st.session_state.carrinho_produtos:
+            st.subheader("Carrinho de Produtos")
+            total = 0
+            for i, item in enumerate(st.session_state.carrinho_produtos):
+                st.write(f"{i+1}. {item['produto_nome']} x{item['quantidade']} - R$ {item['valor_total']:.2f} - Cliente: {item['cliente_nome']} - Pagamento: {item['forma_pagamento']}")
+                total += item['valor_total']
+
+            if st.button("Finalizar Venda de Produtos"):
+                erros = False
+                for item in st.session_state.carrinho_produtos:
+                    ok, msg = salvar_venda_produto(item["cliente_id"], item["produto_id"], item["quantidade"], item["forma_pagamento"])
+                    if not ok:
+                        st.error(f"Erro ao vender '{item['produto_nome']}': {msg}")
+                        erros = True
+                if not erros:
+                    st.session_state.carrinho_produtos.clear()
+                    st.success("Todas as vendas de produtos foram registradas com sucesso!")
+                    st.experimental_rerun()
+
 
     st.subheader("Vendas Registradas")
     vendas = carregar_vendas()
