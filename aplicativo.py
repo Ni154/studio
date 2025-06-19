@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import sqlite3
 from datetime import datetime
@@ -7,8 +8,11 @@ from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 import pandas as pd
 import plotly.express as px
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
 
-# --- Banco e tabelas ---
+# --- Banco ---
 conn = sqlite3.connect('studio_beauty.db', check_same_thread=False)
 cursor = conn.cursor()
 
@@ -85,14 +89,21 @@ def criar_tabelas():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS despesas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        descricao TEXT NOT NULL,
-        valor REAL NOT NULL,
-        data TEXT NOT NULL,
-        quantidade INTEGER DEFAULT 1,
+        descricao TEXT,
+        valor REAL,
+        data TEXT,
+        quantidade INTEGER,
         observacao TEXT
     )''')
 
     conn.commit()
+
+criar_tabelas()
+
+def verificar_login(usuario, senha):
+    cursor.execute("SELECT senha FROM usuarios WHERE usuario = ?", (usuario,))
+    res = cursor.fetchone()
+    return res is not None and res[0] == senha
 
 def criar_usuario_padrao():
     cursor.execute("SELECT * FROM usuarios WHERE usuario = 'admin'")
@@ -100,10 +111,7 @@ def criar_usuario_padrao():
         cursor.execute("INSERT INTO usuarios (usuario, senha) VALUES (?, ?)", ('admin', '1234'))
         conn.commit()
 
-criar_tabelas()
 criar_usuario_padrao()
-
-# --- Funções banco ---
 
 def salvar_cliente(nome, telefone, email, anamnese, bebida, gosto, assinatura_b64, foto_bytes):
     criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -132,10 +140,7 @@ def carregar_servicos():
     return cursor.fetchall()
 
 def salvar_produto(nome, descricao, preco_custo, preco_venda, quantidade):
-    cursor.execute("""
-        INSERT INTO produtos (nome, descricao, preco_custo, preco_venda, quantidade)
-        VALUES (?, ?, ?, ?, ?)
-    """, (nome, descricao, preco_custo, preco_venda, quantidade))
+    cursor.execute("INSERT INTO produtos (nome, descricao, preco_custo, preco_venda, quantidade) VALUES (?, ?, ?, ?, ?)", (nome, descricao, preco_custo, preco_venda, quantidade))
     conn.commit()
 
 def carregar_produtos():
@@ -179,10 +184,10 @@ def salvar_venda_produto(cliente_id, produto_id, quantidade, forma_pagamento):
     res = cursor.fetchone()
     if not res:
         return False, "Produto não encontrado"
-    preco_venda, estoque = res
+    preco, estoque = res
     if estoque < quantidade:
         return False, f"Estoque insuficiente: disponível {estoque}"
-    valor_total = preco_venda * quantidade
+    valor_total = preco * quantidade
     data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute('''
@@ -212,85 +217,130 @@ def cancelar_venda(venda_id):
     conn.commit()
 
 def salvar_despesa(descricao, valor, data, quantidade, observacao):
-    cursor.execute("""
+    cursor.execute('''
         INSERT INTO despesas (descricao, valor, data, quantidade, observacao)
         VALUES (?, ?, ?, ?, ?)
-    """, (descricao, valor, data, quantidade, observacao))
+    ''', (descricao, valor, data, quantidade, observacao))
     conn.commit()
 
 def carregar_despesas():
     cursor.execute("SELECT id, descricao, valor, data, quantidade, observacao FROM despesas ORDER BY data DESC")
     return cursor.fetchall()
 
-# --- Configuração de tema e cores ---
-PALETAS = {
-    "Padrão": {"botao_bg": "#007bff", "botao_fg": "#ffffff", "fundo": "#f0f2f6"},
-    "Azul": {"botao_bg": "#0d6efd", "botao_fg": "#ffffff", "fundo": "#e7f1ff"},
-    "Verde": {"botao_bg": "#198754", "botao_fg": "#ffffff", "fundo": "#e6f4ea"},
-    "Amarelo": {"botao_bg": "#ffc107", "botao_fg": "#000000", "fundo": "#fff9e6"},
-}
+# Função para gerar PDF simples com vendas
+def gerar_pdf_vendas():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    largura, altura = letter
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, altura - 50, "Relatório de Vendas")
+    c.setFont("Helvetica", 12)
+    cursor.execute('''
+        SELECT v.id, c.nome, s.nome, p.nome, v.quantidade, v.valor, v.forma_pagamento, v.data
+        FROM vendas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        LEFT JOIN servicos s ON v.servico_id = s.id
+        LEFT JOIN produtos p ON v.produto_id = p.id
+        WHERE v.status = 'ativo'
+        ORDER BY v.data DESC
+        LIMIT 100
+    ''')
+    vendas = cursor.fetchall()
 
+    y = altura - 80
+    for v in vendas:
+        texto = f"ID {v[0]} - Cliente: {v[1]} - Serviço: {v[2]} - Produto: {v[3]} - Qtde: {v[4]} - Valor: R$ {v[5]:.2f} - Forma: {v[6]} - Data: {v[7]}"
+        c.drawString(50, y, texto)
+        y -= 15
+        if y < 50:
+            c.showPage()
+            y = altura - 50
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# Função para gerar PDF despesas
+def gerar_pdf_despesas():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    largura, altura = letter
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, altura - 50, "Relatório de Despesas")
+    c.setFont("Helvetica", 12)
+    despesas = carregar_despesas()
+
+    y = altura - 80
+    for d in despesas:
+        texto = f"ID {d[0]} - {d[1]} - Valor: R$ {d[2]:.2f} - Data: {d[3]} - Qtde: {d[4]} - Obs: {d[5]}"
+        c.drawString(50, y, texto)
+        y -= 15
+        if y < 50:
+            c.showPage()
+            y = altura - 50
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# Função para gerar PDF resumo financeiro (vendas - despesas)
+def gerar_pdf_resumo_financeiro():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    largura, altura = letter
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, altura - 50, "Resumo Financeiro")
+
+    cursor.execute("SELECT data, valor FROM vendas WHERE status = 'ativo'")
+    vendas_raw = cursor.fetchall()
+    if vendas_raw:
+        df_vendas = pd.DataFrame(vendas_raw, columns=["data", "valor"])
+        df_vendas['data'] = pd.to_datetime(df_vendas['data']).dt.date
+        total_vendas = df_vendas['valor'].sum()
+    else:
+        total_vendas = 0
+
+    cursor.execute("SELECT valor FROM despesas")
+    despesas_raw = cursor.fetchall()
+    if despesas_raw:
+        df_despesas = pd.DataFrame(despesas_raw, columns=["valor"])
+        total_despesas = df_despesas['valor'].sum()
+    else:
+        total_despesas = 0
+
+    total_lucro = total_vendas - total_despesas
+
+    c.setFont("Helvetica", 12)
+    c.drawString(50, altura - 90, f"Total Vendas: R$ {total_vendas:,.2f}")
+    c.drawString(50, altura - 110, f"Total Despesas: R$ {total_despesas:,.2f}")
+    c.drawString(50, altura - 130, f"Lucro Líquido: R$ {total_lucro:,.2f}")
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# Função para aplicar estilos (cor)
 def aplicar_estilos():
-    paleta = st.session_state.get("paleta_cor", "Padrão")
-    cores = PALETAS[paleta]
+    cor = st.session_state.get("cor_tema", "blue")
     st.markdown(f"""
-        <style>
-        .stButton > button {{
-            background-color: {cores['botao_bg']} !important;
-            color: {cores['botao_fg']} !important;
-            border-radius: 6px;
-            height: 3em;
-            width: 100%;
-            margin: 5px 0;
-            font-weight: bold;
-            border: none;
-        }}
-        .css-1d391kg {{
-            background-color: {cores['fundo']} !important;
-        }}
-        .sidebar .css-1d391kg {{
-            background-color: {cores['fundo']} !important;
-        }}
-        </style>
+    <style>
+    .css-1aumxhk {{
+        background-color: {cor};
+        color: white;
+    }}
+    .stButton>button {{
+        background-color: {cor} !important;
+        color: white !important;
+        border-radius: 8px;
+        border: none;
+        padding: 8px 16px;
+    }}
+    .stSidebar .css-1aumxhk {{
+        background-color: {cor};
+        color: white;
+    }}
+    </style>
     """, unsafe_allow_html=True)
 
-# --- Menu lateral com botões fixos e botão configuração ---
-def menu_lateral():
-    st.sidebar.title("Menu")
-
-    aplicar_estilos()
-
-    if 'pagina' not in st.session_state:
-        st.session_state['pagina'] = "Dashboard"
-
-    if st.sidebar.button("Dashboard"):
-        st.session_state['pagina'] = "Dashboard"
-    if st.sidebar.button("Cadastro Cliente"):
-        st.session_state['pagina'] = "Cadastro Cliente"
-    if st.sidebar.button("Cadastro Serviço"):
-        st.session_state['pagina'] = "Cadastro Serviço"
-    if st.sidebar.button("Cadastro Produto"):
-        st.session_state['pagina'] = "Cadastro Produto"
-    if st.sidebar.button("Agendamento"):
-        st.session_state['pagina'] = "Agendamento"
-    if st.sidebar.button("Vendas"):
-        st.session_state['pagina'] = "Vendas"
-    if st.sidebar.button("Despesas"):
-        st.session_state['pagina'] = "Despesas"
-    if st.sidebar.button("Relatórios"):
-        st.session_state['pagina'] = "Relatórios"
-    if st.sidebar.button("Clientes Cancelados"):
-        st.session_state['pagina'] = "Clientes Cancelados"
-    if st.sidebar.button("⚙️ Configurações"):
-        st.session_state['pagina'] = "Configurações"
-    if st.sidebar.button("Sair"):
-        st.session_state['login'] = False
-        st.experimental_rerun()
-
-    return st.session_state['pagina']
-
-# --- Páginas ---
-
+# --- Página dashboard ---
 def pagina_dashboard():
     st.title("Dashboard Financeiro")
     aplicar_estilos()
@@ -303,6 +353,7 @@ def pagina_dashboard():
         df_vendas['data'] = pd.to_datetime(df_vendas['data']).dt.date
         df_vendas_group = df_vendas.groupby('data').sum().reset_index()
     else:
+        df_vendas = pd.DataFrame(columns=["data", "valor"])
         df_vendas_group = pd.DataFrame(columns=["data", "valor"])
 
     # Dados despesas
@@ -313,6 +364,7 @@ def pagina_dashboard():
         df_despesas['data'] = pd.to_datetime(df_despesas['data']).dt.date
         df_despesas_group = df_despesas.groupby('data').sum().reset_index()
     else:
+        df_despesas = pd.DataFrame(columns=["data", "valor"])
         df_despesas_group = pd.DataFrame(columns=["data", "valor"])
 
     # Lucro por dia (vendas - despesas)
@@ -348,265 +400,112 @@ def pagina_dashboard():
         fig_lucro = px.line(df_lucro, x="data", y="lucro", title="Lucro Diário", labels={"data": "Data", "lucro": "Lucro (R$)"})
         st.plotly_chart(fig_lucro, use_container_width=True)
 
-def pagina_cadastro_cliente_admin():
-    st.header("Cadastro Cliente (Admin)")
-    with st.form("form_cliente_admin", clear_on_submit=True):
-        nome = st.text_input("Nome completo")
-        telefone = st.text_input("Telefone")
-        email = st.text_input("Email")
-        anamnese = st.text_area("Anamnese")
-        bebida = st.text_input("Bebida Preferida")
-        gosto = st.text_input("Gosto Musical")
-        # Para assinatura e foto deixarei simples: receber base64 texto e bytes
-        assinatura = st.text_area("Assinatura Digital (base64, opcional)")
-        foto = st.file_uploader("Foto (JPEG/PNG)", type=["jpg","jpeg","png"])
+    # Botões para gerar PDFs
+    st.markdown("---")
+    colv, cold, colr = st.columns(3)
+    with colv:
+        if st.button("Gerar Relatório Vendas PDF"):
+            pdf = gerar_pdf_vendas()
+            b64 = base64.b64encode(pdf.read()).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="relatorio_vendas.pdf">Download Relatório Vendas</a>'
+            st.markdown(href, unsafe_allow_html=True)
+    with cold:
+        if st.button("Gerar Relatório Despesas PDF"):
+            pdf = gerar_pdf_despesas()
+            b64 = base64.b64encode(pdf.read()).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="relatorio_despesas.pdf">Download Relatório Despesas</a>'
+            st.markdown(href, unsafe_allow_html=True)
+    with colr:
+        if st.button("Gerar Resumo Financeiro PDF"):
+            pdf = gerar_pdf_resumo_financeiro()
+            b64 = base64.b64encode(pdf.read()).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="resumo_financeiro.pdf">Download Resumo Financeiro</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
-        foto_bytes = None
-        if foto is not None:
-            foto_bytes = foto.read()
+# --- Configurações de paleta ---
+def pagina_configuracoes():
+    st.title("Configurações de Tema")
+    cores = {
+        "Azul": "#1f77b4",
+        "Verde": "#2ca02c",
+        "Vermelho": "#d62728",
+        "Amarelo": "#ffbf00",
+        "Roxo": "#9467bd",
+        "Preto": "#111111"
+    }
+    escolha = st.selectbox("Escolha a cor do tema:", list(cores.keys()), index=0)
+    st.session_state["cor_tema"] = cores[escolha]
+    aplicar_estilos()
+    st.success(f"Tema alterado para {escolha}")
 
-        submit = st.form_submit_button("Salvar Cliente")
-        if submit:
-            if not nome.strip():
-                st.error("Nome obrigatório")
-            else:
-                salvar_cliente(nome, telefone, email, anamnese, bebida, gosto, assinatura, foto_bytes)
-                st.success("Cliente salvo com sucesso!")
+# --- Menu lateral fixo com ícones e botões ---
+def menu_lateral():
+    st.sidebar.title("Menu Principal")
+    menu_opcoes = {
+        "Dashboard": pagina_dashboard,
+        "Clientes": pagina_clientes,
+        "Serviços": pagina_servicos,
+        "Produtos": pagina_produtos,
+        "Agendamentos": pagina_agendamentos,
+        "Vendas": pagina_vendas,
+        "Despesas": pagina_despesas,
+        "Configurações": pagina_configuracoes
+    }
+    for nome, func in menu_opcoes.items():
+        if st.sidebar.button(nome):
+            st.session_state["pagina_atual"] = nome
+            func()
 
-    clientes = carregar_clientes(ativos=True)
-    st.subheader("Clientes Ativos")
-    for c in clientes:
-        st.write(f"ID {c[0]} | {c[1]} | Telefone: {c[2]}")
+# --- Outras páginas (exemplo de clientes, serviços etc) ---
+def pagina_clientes():
+    st.title("Clientes")
+    # Código para exibir, cadastrar, editar, cancelar clientes (semelhante a outros módulos)
+    st.info("Página de clientes em desenvolvimento.")
 
-def pagina_cadastro_servico():
-    st.header("Cadastro Serviço")
-    with st.form("form_servico", clear_on_submit=True):
-        nome = st.text_input("Nome do serviço")
-        descricao = st.text_area("Descrição")
-        duracao = st.number_input("Duração (minutos)", min_value=1, step=1)
-        valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
+def pagina_servicos():
+    st.title("Serviços")
+    st.info("Página de serviços em desenvolvimento.")
 
-        submit = st.form_submit_button("Salvar Serviço")
-        if submit:
-            if not nome.strip():
-                st.error("Nome obrigatório")
-            else:
-                salvar_servico(nome, descricao, duracao, valor)
-                st.success("Serviço salvo")
+def pagina_produtos():
+    st.title("Produtos")
+    st.info("Página de produtos em desenvolvimento.")
 
-    servicos = carregar_servicos()
-    st.subheader("Serviços cadastrados")
-    for s in servicos:
-        st.write(f"ID {s[0]} | {s[1]} | Valor: R$ {s[4]:.2f} | Duração: {s[3]} min")
-
-def pagina_cadastro_produto():
-    st.header("Cadastro Produto")
-    with st.form("form_produto", clear_on_submit=True):
-        nome = st.text_input("Nome do produto")
-        descricao = st.text_area("Descrição")
-        preco_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, step=0.01, format="%.2f")
-        preco_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, step=0.01, format="%.2f")
-        quantidade = st.number_input("Quantidade em estoque", min_value=0, step=1)
-
-        submit = st.form_submit_button("Salvar Produto")
-        if submit:
-            if not nome.strip():
-                st.error("Nome obrigatório")
-            else:
-                salvar_produto(nome, descricao, preco_custo, preco_venda, quantidade)
-                st.success("Produto salvo")
-
-    produtos = carregar_produtos()
-    st.subheader("Produtos cadastrados")
-    for p in produtos:
-        st.write(f"ID {p[0]} | {p[1]} | Custo: R$ {p[3]:.2f} | Venda: R$ {p[4]:.2f} | Estoque: {p[5]}")
-
-def pagina_agendamento():
-    st.header("Agendamento")
-    clientes = carregar_clientes()
-    servicos = carregar_servicos()
-
-    clientes_dict = {f"{c[1]} (ID {c[0]})": c[0] for c in clientes}
-    servicos_dict = {f"{s[1]} (ID {s[0]})": s[0] for s in servicos}
-
-    with st.form("form_agendamento"):
-        cliente_sel = st.selectbox("Cliente", list(clientes_dict.keys()))
-        servico_sel = st.selectbox("Serviço", list(servicos_dict.keys()))
-        data_hora = st.datetime_input("Data e Hora do agendamento", datetime.now())
-        submit = st.form_submit_button("Salvar Agendamento")
-        if submit:
-            salvar_agendamento(clientes_dict[cliente_sel], servicos_dict[servico_sel], data_hora.strftime("%Y-%m-%d %H:%M:%S"))
-            st.success("Agendamento salvo!")
-
-    agendamentos = carregar_agendamentos()
-    st.subheader("Agendamentos Ativos")
-    for a in agendamentos:
-        st.write(f"ID {a[0]} | Cliente: {a[1]} | Serviço: {a[2]} | Data/Hora: {a[3]}")
+def pagina_agendamentos():
+    st.title("Agendamentos")
+    st.info("Página de agendamentos em desenvolvimento.")
 
 def pagina_vendas():
-    st.header("Painel de Vendas")
-
-    clientes = carregar_clientes()
-    servicos = carregar_servicos()
-    produtos = carregar_produtos()
-
-    clientes_dict = {f"{c[1]} (ID {c[0]})": c[0] for c in clientes}
-    servicos_dict = {f"{s[1]} (ID {s[0]})": s[0] for s in servicos}
-    produtos_dict = {f"{p[1]} (ID {p[0]})": p[0] for p in produtos}
-
-    with st.form("form_venda"):
-        tipo_venda = st.radio("Tipo de venda", ("Serviço", "Produto"))
-        cliente_sel = st.selectbox("Cliente", list(clientes_dict.keys()))
-
-        forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix"])
-
-        if tipo_venda == "Serviço":
-            servico_sel = st.selectbox("Serviço", list(servicos_dict.keys()))
-            valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
-            submit = st.form_submit_button("Registrar Venda")
-            if submit:
-                salvar_venda_servico(clientes_dict[cliente_sel], servicos_dict[servico_sel], valor, forma_pagamento)
-                st.success("Venda de serviço registrada!")
-        else:
-            produto_sel = st.selectbox("Produto", list(produtos_dict.keys()))
-            quantidade = st.number_input("Quantidade", min_value=1, step=1)
-            submit = st.form_submit_button("Registrar Venda")
-            if submit:
-                sucesso, msg = salvar_venda_produto(clientes_dict[cliente_sel], produtos_dict[produto_sel], quantidade, forma_pagamento)
-                if sucesso:
-                    st.success(msg)
-                else:
-                    st.error(msg)
-
-    vendas = carregar_vendas()
-    st.subheader("Vendas Ativas")
-    for v in vendas:
-        st.write(f"ID {v[0]} | Cliente: {v[1]} | Serviço: {v[2] or '-'} | Produto: {v[3] or '-'} | Qtde: {v[4] or '-'} | Valor: R$ {v[5]:.2f} | Pagamento: {v[6]} | Data: {v[7]}")
+    st.title("Vendas")
+    st.info("Página de vendas em desenvolvimento.")
 
 def pagina_despesas():
-    st.header("Despesas")
+    st.title("Despesas")
+    st.info("Página de despesas em desenvolvimento.")
 
-    with st.form("form_despesa", clear_on_submit=True):
-        descricao = st.text_input("Descrição")
-        valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
-        data = st.date_input("Data", datetime.today())
-        quantidade = st.number_input("Quantidade", min_value=1, step=1, value=1)
-        observacao = st.text_area("Observação (opcional)")
-
-        submit = st.form_submit_button("Registrar Despesa")
-        if submit:
-            if not descricao.strip():
-                st.error("Descrição obrigatória")
-            else:
-                salvar_despesa(descricao, valor, data.strftime("%Y-%m-%d"), quantidade, observacao)
-                st.success("Despesa registrada")
-
-    despesas = carregar_despesas()
-    st.subheader("Despesas registradas")
-    for d in despesas:
-        st.write(f"ID {d[0]} | {d[1]} | Valor: R$ {d[2]:.2f} | Data: {d[3]} | Quantidade: {d[4]} | Obs: {d[5]}")
-
-def pagina_relatorios():
-    st.title("Relatórios")
-
-    # Relatório Vendas
-    st.header("Relatório de Vendas")
-    vendas = carregar_vendas()
-    df_vendas = pd.DataFrame(vendas, columns=["ID", "Cliente", "Serviço", "Produto", "Quantidade", "Valor", "Pagamento", "Data", "Status"])
-    if not df_vendas.empty:
-        df_vendas['Data'] = pd.to_datetime(df_vendas['Data'])
-        filtro_data = st.date_input("Filtrar vendas por data", [])
-        # Filtro opcional por data (de/até)
-        if filtro_data:
-            if len(filtro_data) == 2:
-                df_vendas = df_vendas[(df_vendas['Data'] >= pd.to_datetime(filtro_data[0])) & (df_vendas['Data'] <= pd.to_datetime(filtro_data[1]))]
-        st.dataframe(df_vendas)
-        # Exportar CSV
-        csv = df_vendas.to_csv(index=False).encode('utf-8')
-        st.download_button("Download CSV Vendas", csv, "relatorio_vendas.csv", "text/csv")
-    else:
-        st.info("Nenhuma venda registrada.")
-
-    # Relatório Despesas
-    st.header("Relatório de Despesas")
-    despesas = carregar_despesas()
-    df_despesas = pd.DataFrame(despesas, columns=["ID", "Descrição", "Valor", "Data", "Quantidade", "Observação"])
-    if not df_despesas.empty:
-        df_despesas['Data'] = pd.to_datetime(df_despesas['Data'])
-        filtro_data = st.date_input("Filtrar despesas por data", [])
-        if filtro_data:
-            if len(filtro_data) == 2:
-                df_despesas = df_despesas[(df_despesas['Data'] >= pd.to_datetime(filtro_data[0])) & (df_despesas['Data'] <= pd.to_datetime(filtro_data[1]))]
-        st.dataframe(df_despesas)
-        csv = df_despesas.to_csv(index=False).encode('utf-8')
-        st.download_button("Download CSV Despesas", csv, "relatorio_despesas.csv", "text/csv")
-    else:
-        st.info("Nenhuma despesa registrada.")
-
-def pagina_clientes_cancelados():
-    st.header("Clientes Cancelados")
-    clientes = carregar_clientes(ativos=False)
-    for c in clientes:
-        st.write(f"ID {c[0]} | {c[1]} | Telefone: {c[2]}")
-
-def pagina_configuracoes():
-    st.header("Configurações")
-
-    paleta_atual = st.session_state.get("paleta_cor", "Padrão")
-    nova_paleta = st.selectbox("Escolha a paleta de cores", list(PALETAS.keys()), index=list(PALETAS.keys()).index(paleta_atual))
-    if st.button("Salvar"):
-        st.session_state["paleta_cor"] = nova_paleta
-        st.success(f"Paleta alterada para: {nova_paleta}")
-
-def pagina_login():
-    st.title("Login Studio Beleza")
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        cursor.execute("SELECT senha FROM usuarios WHERE usuario = ?", (usuario,))
-        res = cursor.fetchone()
-        if res and res[0] == senha:
-            st.session_state['login'] = True
-            st.session_state['usuario'] = usuario
-            st.rerun()
-        else:
-            st.error("Usuário ou senha inválidos")
-
-# --- Main ---
+# --- Função principal ---
 def main():
-    if 'login' not in st.session_state:
-        st.session_state['login'] = False
-    if 'paleta_cor' not in st.session_state:
-        st.session_state['paleta_cor'] = "Padrão"
-
-    if not st.session_state['login']:
-        pagina_login()
-        return
-
-    pagina = menu_lateral()
-
+    st.set_page_config(page_title="Studio Beauty", layout="wide")
+    criar_tabelas()
+    if "pagina_atual" not in st.session_state:
+        st.session_state["pagina_atual"] = "Dashboard"
+    menu_lateral()
+    pagina = st.session_state["pagina_atual"]
     if pagina == "Dashboard":
         pagina_dashboard()
-    elif pagina == "Cadastro Cliente":
-        pagina_cadastro_cliente_admin()
-    elif pagina == "Cadastro Serviço":
-        pagina_cadastro_servico()
-    elif pagina == "Cadastro Produto":
-        pagina_cadastro_produto()
-    elif pagina == "Agendamento":
-        pagina_agendamento()
+    elif pagina == "Clientes":
+        pagina_clientes()
+    elif pagina == "Serviços":
+        pagina_servicos()
+    elif pagina == "Produtos":
+        pagina_produtos()
+    elif pagina == "Agendamentos":
+        pagina_agendamentos()
     elif pagina == "Vendas":
         pagina_vendas()
     elif pagina == "Despesas":
         pagina_despesas()
-    elif pagina == "Relatórios":
-        pagina_relatorios()
-    elif pagina == "Clientes Cancelados":
-        pagina_clientes_cancelados()
     elif pagina == "Configurações":
         pagina_configuracoes()
-    else:
-        st.write(f"Página '{pagina}' não implementada.")
 
 if __name__ == "__main__":
     main()
