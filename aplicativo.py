@@ -11,7 +11,6 @@ from streamlit_drawable_canvas import st_canvas
 conn = sqlite3.connect('studio_beauty.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# Função para criar tabelas - corrigido para garantir criação antes do uso
 def criar_tabelas():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS usuarios (
@@ -82,7 +81,7 @@ def criar_tabelas():
     )''')
     conn.commit()
 
-# --- Correção: criar tabelas antes de buscar usuário ---
+# --- Correção: criar tabelas antes de qualquer outra operação ---
 criar_tabelas()
 
 def verificar_login(usuario, senha):
@@ -432,116 +431,113 @@ def pagina_cadastro_produto():
     for p in produtos:
         st.write(f"{p[0]} - {p[1]} - R$ {p[3]:.2f} - Estoque: {p[4]}")
 
-# --- Página agendamento ---
+# --- Página Agendamento ---
 def pagina_agendamento():
     st.header("Agendamento")
+
     clientes = carregar_clientes()
     servicos = carregar_servicos()
-    clientes_dict = {c[1]: c[0] for c in clientes}
-    servicos_dict = {s[1]: s[0] for s in servicos}
 
-    cliente_nome = st.selectbox("Selecione o cliente", list(clientes_dict.keys()))
-    servico_nome = st.selectbox("Selecione o serviço", list(servicos_dict.keys()))
-    data_hora = st.datetime_input("Data e Hora")
+    cliente_opcoes = {c[1]: c[0] for c in clientes}
+    servico_opcoes = {s[1]: s[0] for s in servicos}
 
-    if st.button("Agendar"):
-        cliente_id = clientes_dict[cliente_nome]
-        servico_id = servicos_dict[servico_nome]
-        salvar_agendamento(cliente_id, servico_id, data_hora.strftime("%Y-%m-%d %H:%M:%S"))
-        st.success("Agendamento realizado")
+    with st.form("form_agendamento"):
+        cliente_sel = st.selectbox("Cliente", list(cliente_opcoes.keys()))
+        servico_sel = st.selectbox("Serviço", list(servico_opcoes.keys()))
+        data_hora = st.datetime_input("Data e Hora")
+
+        submit = st.form_submit_button("Agendar")
+        if submit:
+            salvar_agendamento(cliente_opcoes[cliente_sel], servico_opcoes[servico_sel], data_hora.strftime("%Y-%m-%d %H:%M:%S"))
+            st.success("Agendamento salvo")
 
     agendamentos = carregar_agendamentos()
     st.subheader("Agendamentos ativos")
-    for a in agendamentos:
-        st.write(f"{a[0]} - Cliente: {a[1]} | Serviço: {a[2]} | Data: {a[3]}")
+    for ag in agendamentos:
+        st.write(f"ID: {ag[0]} - Cliente: {ag[1]} - Serviço: {ag[2]} - Data: {ag[3]} - Status: {ag[4]}")
+        if st.button(f"Cancelar {ag[0]}", key=f"cancelar_ag_{ag[0]}"):
+            cancelar_agendamento(ag[0])
+            st.experimental_rerun()
 
-# --- Página vendas ---
+# --- Página Vendas ---
 def pagina_vendas():
     st.header("Vendas")
+
     clientes = carregar_clientes()
     servicos = carregar_servicos()
     produtos = carregar_produtos()
 
-    clientes_dict = {c[1]: c[0] for c in clientes}
-    servicos_dict = {s[1]: s[0] for s in servicos}
-    produtos_dict = {p[1]: p[0] for p in produtos}
+    cliente_opcoes = {c[1]: c[0] for c in clientes}
+    servico_opcoes = {s[1]: s[0] for s in servicos}
+    produto_opcoes = {p[1]: p[0] for p in produtos}
 
-    venda_tipo = st.radio("Tipo de venda", ["Serviço", "Produto"])
+    forma_pagamento = st.selectbox("Forma de pagamento", ["Pix", "Dinheiro", "Crédito", "Débito"])
 
-    cliente_nome = st.selectbox("Cliente", list(clientes_dict.keys()))
+    with st.form("form_venda"):
+        tipo_venda = st.radio("Tipo de venda", ["Serviço", "Produto"])
 
-    if venda_tipo == "Serviço":
-        servico_nome = st.selectbox("Serviço", list(servicos_dict.keys()))
-        valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
-        forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
+        cliente_sel = st.selectbox("Cliente", list(cliente_opcoes.keys()))
+        if tipo_venda == "Serviço":
+            servico_sel = st.selectbox("Serviço", list(servico_opcoes.keys()))
+            valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
+        else:
+            produto_sel = st.selectbox("Produto", list(produto_opcoes.keys()))
+            quantidade = st.number_input("Quantidade", min_value=1, step=1)
 
-        if st.button("Registrar venda serviço"):
-            cliente_id = clientes_dict[cliente_nome]
-            servico_id = servicos_dict[servico_nome]
-            salvar_venda_servico(cliente_id, servico_id, valor, forma_pagamento)
-            st.success("Venda de serviço registrada")
+        submit = st.form_submit_button("Registrar Venda")
 
-    else:
-        produto_nome = st.selectbox("Produto", list(produtos_dict.keys()))
-        quantidade = st.number_input("Quantidade", min_value=1, step=1)
-        forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
-
-        if st.button("Registrar venda produto"):
-            cliente_id = clientes_dict[cliente_nome]
-            produto_id = produtos_dict[produto_nome]
-            sucesso, msg = salvar_venda_produto(cliente_id, produto_id, quantidade, forma_pagamento)
-            if sucesso:
-                st.success(msg)
+        if submit:
+            if tipo_venda == "Serviço":
+                salvar_venda_servico(cliente_opcoes[cliente_sel], servico_opcoes[servico_sel], valor, forma_pagamento)
+                st.success("Venda de serviço registrada")
             else:
-                st.error(msg)
-
-# --- Página relatórios ---
-def pagina_relatorios():
-    st.header("Relatórios")
+                sucesso, msg = salvar_venda_produto(cliente_opcoes[cliente_sel], produto_opcoes[produto_sel], quantidade, forma_pagamento)
+                if sucesso:
+                    st.success(msg)
+                else:
+                    st.error(msg)
 
     vendas = carregar_vendas()
-    st.subheader("Vendas recentes")
+    st.subheader("Vendas Ativas")
     for v in vendas:
-        st.write(f"{v[0]} - Cliente: {v[1]} | Serviço: {v[2]} | Produto: {v[3]} | Quantidade: {v[4]} | Valor: R$ {v[5]:.2f} | Pagamento: {v[6]} | Data: {v[7]}")
+        st.write(f"ID: {v[0]} - Cliente: {v[1]} - Serviço: {v[2] or '-'} - Produto: {v[3] or '-'} - Quantidade: {v[4] or '-'} - Valor: R$ {v[5]:.2f} - Pagamento: {v[6]} - Data: {v[7]} - Status: {v[8]}")
+        if st.button(f"Cancelar {v[0]}", key=f"cancelar_venda_{v[0]}"):
+            cancelar_venda(v[0])
+            st.experimental_rerun()
 
-# --- Página clientes cancelados ---
+# --- Página Clientes Cancelados ---
 def pagina_clientes_cancelados():
     st.header("Clientes Cancelados")
     clientes = carregar_clientes(ativos=False)
     for c in clientes:
-        st.write(f"{c[0]} - {c[1]} - {c[2]}")
+        st.write(f"ID: {c[0]} - Nome: {c[1]} - Telefone: {c[2]}")
 
-# --- Página inicial após login ---
-def pagina_inicial():
-    st.title(f"Bem-vindo, {st.session_state.get('usuario', '')}")
-    st.write("Use o menu lateral para navegar pelas funcionalidades.")
-
-# --- Main ---
-if 'login' not in st.session_state:
-    st.session_state['login'] = False
-
-if not st.session_state['login']:
-    pagina_login()
-else:
-    pagina = menu_lateral()
-
-    if pagina == "Cadastro Cliente":
-        pagina_cadastro_cliente_admin()
-    elif pagina == "Cadastro Serviço":
-        pagina_cadastro_servico()
-    elif pagina == "Cadastro Produto":
-        pagina_cadastro_produto()
-    elif pagina == "Agendamento":
-        pagina_agendamento()
-    elif pagina == "Vendas":
-        pagina_vendas()
-    elif pagina == "Relatórios":
-        pagina_relatorios()
-    elif pagina == "Clientes Cancelados":
-        pagina_clientes_cancelados()
-    elif pagina == "Sair":
+# --- Página principal ---
+def main():
+    if 'login' not in st.session_state:
         st.session_state['login'] = False
-        st.experimental_rerun()
 
-# --- Rodar formulário ficha avaliação pelo link (se desejar) ---
-# para criar uma rota diferente (não coberta aqui, mas pode ser implementado com query params)
+    if not st.session_state['login']:
+        pagina_login()
+    else:
+        pagina = menu_lateral()
+        if pagina == "Cadastro Cliente":
+            pagina_cadastro_cliente_admin()
+        elif pagina == "Cadastro Serviço":
+            pagina_cadastro_servico()
+        elif pagina == "Cadastro Produto":
+            pagina_cadastro_produto()
+        elif pagina == "Agendamento":
+            pagina_agendamento()
+        elif pagina == "Vendas":
+            pagina_vendas()
+        elif pagina == "Relatórios":
+            st.info("Página de relatórios em desenvolvimento.")
+        elif pagina == "Clientes Cancelados":
+            pagina_clientes_cancelados()
+        elif pagina == "Sair":
+            st.session_state['login'] = False
+            st.experimental_rerun()
+
+if __name__ == "__main__":
+    main()
