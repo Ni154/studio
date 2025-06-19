@@ -128,217 +128,6 @@ def cancelar_cliente(cliente_id):
     cursor.execute("UPDATE clientes SET status = 'cancelado' WHERE id = ?", (cliente_id,))
     conn.commit()
 
-def salvar_servico(nome, descricao, duracao, valor):
-    cursor.execute("INSERT INTO servicos (nome, descricao, duracao, valor) VALUES (?, ?, ?, ?)", (nome, descricao, duracao, valor))
-    conn.commit()
-
-def carregar_servicos():
-    cursor.execute("SELECT id, nome, descricao, duracao, valor FROM servicos")
-    return cursor.fetchall()
-
-def salvar_produto(nome, descricao, preco_custo, preco_venda, quantidade):
-    cursor.execute("INSERT INTO produtos (nome, descricao, preco_custo, preco_venda, quantidade) VALUES (?, ?, ?, ?, ?)", (nome, descricao, preco_custo, preco_venda, quantidade))
-    conn.commit()
-
-def carregar_produtos():
-    cursor.execute("SELECT id, nome, descricao, preco_custo, preco_venda, quantidade FROM produtos")
-    return cursor.fetchall()
-
-def salvar_agendamento(cliente_id, servico_id, data_hora):
-    criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute('''
-        INSERT INTO agendamentos (cliente_id, servico_id, data_hora, criado_em)
-        VALUES (?, ?, ?, ?)
-    ''', (cliente_id, servico_id, data_hora, criado_em))
-    conn.commit()
-
-def carregar_agendamentos(ativos=True):
-    status = 'ativo' if ativos else 'cancelado'
-    cursor.execute('''
-        SELECT a.id, c.nome, s.nome, a.data_hora, a.status
-        FROM agendamentos a
-        JOIN clientes c ON a.cliente_id = c.id
-        JOIN servicos s ON a.servico_id = s.id
-        WHERE a.status = ?
-        ORDER BY a.data_hora DESC
-    ''', (status,))
-    return cursor.fetchall()
-
-def cancelar_agendamento(agendamento_id):
-    cursor.execute("UPDATE agendamentos SET status = 'cancelado' WHERE id = ?", (agendamento_id,))
-    conn.commit()
-
-def salvar_venda_servico(cliente_id, servico_id, valor, forma_pagamento):
-    data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute('''
-        INSERT INTO vendas (cliente_id, servico_id, valor, forma_pagamento, data)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (cliente_id, servico_id, valor, forma_pagamento, data))
-    conn.commit()
-
-def salvar_venda_produto(cliente_id, produto_id, quantidade, forma_pagamento):
-    cursor.execute("SELECT preco_venda, quantidade FROM produtos WHERE id = ?", (produto_id,))
-    res = cursor.fetchone()
-    if not res:
-        return False, "Produto não encontrado"
-    preco, estoque = res
-    if estoque < quantidade:
-        return False, f"Estoque insuficiente: disponível {estoque}"
-    valor_total = preco * quantidade
-    data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    cursor.execute('''
-        INSERT INTO vendas (cliente_id, produto_id, quantidade, valor, forma_pagamento, data)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (cliente_id, produto_id, quantidade, valor_total, forma_pagamento, data))
-
-    cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?", (quantidade, produto_id))
-    conn.commit()
-    return True, "Venda registrada com sucesso"
-
-def carregar_vendas(ativos=True, data_inicio=None, data_fim=None):
-    status = 'ativo' if ativos else 'cancelado'
-    query = '''
-        SELECT v.id, c.nome, s.nome, p.nome, v.quantidade, v.valor, v.forma_pagamento, v.data, v.status
-        FROM vendas v
-        LEFT JOIN clientes c ON v.cliente_id = c.id
-        LEFT JOIN servicos s ON v.servico_id = s.id
-        LEFT JOIN produtos p ON v.produto_id = p.id
-        WHERE v.status = ?
-    '''
-    params = [status]
-    if data_inicio and data_fim:
-        query += " AND date(v.data) BETWEEN ? AND ?"
-        params.extend([data_inicio, data_fim])
-    query += " ORDER BY v.data DESC"
-    cursor.execute(query, params)
-    return cursor.fetchall()
-
-def cancelar_venda(venda_id):
-    cursor.execute("UPDATE vendas SET status = 'cancelado' WHERE id = ?", (venda_id,))
-    conn.commit()
-
-def salvar_despesa(descricao, valor, data, quantidade, observacao):
-    cursor.execute('''
-        INSERT INTO despesas (descricao, valor, data, quantidade, observacao)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (descricao, valor, data, quantidade, observacao))
-    conn.commit()
-
-def carregar_despesas(data_inicio=None, data_fim=None):
-    query = "SELECT id, descricao, valor, data, quantidade, observacao FROM despesas"
-    params = []
-    if data_inicio and data_fim:
-        query += " WHERE date(data) BETWEEN ? AND ?"
-        params.extend([data_inicio, data_fim])
-    query += " ORDER BY data DESC"
-    cursor.execute(query, params)
-    return cursor.fetchall()
-
-# --- PDFs: vendas, despesas e resumo financeiro ---
-def gerar_pdf_vendas(data_inicio=None, data_fim=None):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    largura, altura = letter
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, altura - 50, "Relatório de Vendas")
-    c.setFont("Helvetica", 12)
-    query = '''
-        SELECT v.id, c.nome, s.nome, p.nome, v.quantidade, v.valor, v.forma_pagamento, v.data
-        FROM vendas v
-        LEFT JOIN clientes c ON v.cliente_id = c.id
-        LEFT JOIN servicos s ON v.servico_id = s.id
-        LEFT JOIN produtos p ON v.produto_id = p.id
-        WHERE v.status = 'ativo'
-    '''
-    params = []
-    if data_inicio and data_fim:
-        query += " AND date(v.data) BETWEEN ? AND ?"
-        params.extend([data_inicio, data_fim])
-    query += " ORDER BY v.data DESC LIMIT 100"
-    cursor.execute(query, params)
-    vendas = cursor.fetchall()
-
-    y = altura - 80
-    for v in vendas:
-        texto = f"ID {v[0]} - Cliente: {v[1]} - Serviço: {v[2]} - Produto: {v[3]} - Qtde: {v[4]} - Valor: R$ {v[5]:.2f} - Forma: {v[6]} - Data: {v[7]}"
-        c.drawString(50, y, texto)
-        y -= 15
-        if y < 50:
-            c.showPage()
-            y = altura - 50
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-def gerar_pdf_despesas(data_inicio=None, data_fim=None):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    largura, altura = letter
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, altura - 50, "Relatório de Despesas")
-    c.setFont("Helvetica", 12)
-    despesas = carregar_despesas(data_inicio, data_fim)
-
-    y = altura - 80
-    for d in despesas:
-        texto = f"ID {d[0]} - {d[1]} - Valor: R$ {d[2]:.2f} - Data: {d[3]} - Qtde: {d[4]} - Obs: {d[5]}"
-        c.drawString(50, y, texto)
-        y -= 15
-        if y < 50:
-            c.showPage()
-            y = altura - 50
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-def gerar_pdf_resumo_financeiro(data_inicio=None, data_fim=None):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    largura, altura = letter
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, altura - 50, "Resumo Financeiro")
-
-    params = []
-    query_vendas = "SELECT data, valor FROM vendas WHERE status = 'ativo'"
-    if data_inicio and data_fim:
-        query_vendas += " AND date(data) BETWEEN ? AND ?"
-        params = [data_inicio, data_fim]
-
-    cursor.execute(query_vendas, params)
-    vendas_raw = cursor.fetchall()
-    if vendas_raw:
-        df_vendas = pd.DataFrame(vendas_raw, columns=["data", "valor"])
-        df_vendas['data'] = pd.to_datetime(df_vendas['data']).dt.date
-        total_vendas = df_vendas['valor'].sum()
-    else:
-        total_vendas = 0
-
-    query_despesas = "SELECT valor FROM despesas"
-    params = []
-    if data_inicio and data_fim:
-        query_despesas += " WHERE date(data) BETWEEN ? AND ?"
-        params = [data_inicio, data_fim]
-
-    cursor.execute(query_despesas, params)
-    despesas_raw = cursor.fetchall()
-    if despesas_raw:
-        df_despesas = pd.DataFrame(despesas_raw, columns=["valor"])
-        total_despesas = df_despesas['valor'].sum()
-    else:
-        total_despesas = 0
-
-    total_lucro = total_vendas - total_despesas
-
-    c.setFont("Helvetica", 12)
-    c.drawString(50, altura - 90, f"Total Vendas: R$ {total_vendas:,.2f}")
-    c.drawString(50, altura - 110, f"Total Despesas: R$ {total_despesas:,.2f}")
-    c.drawString(50, altura - 130, f"Lucro Líquido: R$ {total_lucro:,.2f}")
-
-    c.save()
-    buffer.seek(0)
-    return buffer
-
 # --- Páginas ---
 
 def pagina_login():
@@ -349,7 +138,7 @@ def pagina_login():
         if verificar_login(usuario, senha):
             st.session_state["login"] = True
             st.session_state["pagina"] = "Dashboard"
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Usuário ou senha incorretos")
 
@@ -409,6 +198,21 @@ def pagina_clientes():
                 cancelar_cliente(cid)
                 st.success("Cliente cancelado")
                 st.experimental_rerun()
+                def salvar_servico(nome, descricao, duracao, valor):
+    cursor.execute("INSERT INTO servicos (nome, descricao, duracao, valor) VALUES (?, ?, ?, ?)", (nome, descricao, duracao, valor))
+    conn.commit()
+
+def carregar_servicos():
+    cursor.execute("SELECT id, nome, descricao, duracao, valor FROM servicos")
+    return cursor.fetchall()
+
+def salvar_produto(nome, descricao, preco_custo, preco_venda, quantidade):
+    cursor.execute("INSERT INTO produtos (nome, descricao, preco_custo, preco_venda, quantidade) VALUES (?, ?, ?, ?, ?)", (nome, descricao, preco_custo, preco_venda, quantidade))
+    conn.commit()
+
+def carregar_produtos():
+    cursor.execute("SELECT id, nome, descricao, preco_custo, preco_venda, quantidade FROM produtos")
+    return cursor.fetchall()
 
 def pagina_servicos():
     st.title("Serviços")
@@ -473,219 +277,344 @@ def pagina_produtos():
         with col5:
             st.write(p[5])
         with col6:
-            pass  # Aqui pode adicionar botões editar ou excluir se quiser
+            pass  # Espaço para ações futuras, tipo editar/excluir
+
+# ---
+
+# No main() você deve adicionar essas páginas no menu, por exemplo:
+
+def main():
+    st.set_page_config(page_title="Sistema Estúdio de Beleza", layout="wide")
+
+    if "login" not in st.session_state:
+        st.session_state["login"] = False
+    if "pagina" not in st.session_state:
+        st.session_state["pagina"] = "Login"
+
+    if not st.session_state["login"]:
+        pagina_login()
+    else:
+        col1, col2 = st.columns([1, 7])
+        with col1:
+            st.sidebar.title("Menu")
+            pagina = st.sidebar.radio("Navegação", [
+                "Dashboard",
+                "Clientes",
+                "Serviços",
+                "Produtos",
+                # outras páginas que iremos enviar depois...
+            ])
+            st.session_state["pagina"] = pagina
+        with col2:
+            pagina_atual = st.session_state["pagina"]
+            if pagina_atual == "Dashboard":
+                pagina_dashboard()
+            elif pagina_atual == "Clientes":
+                pagina_clientes()
+            elif pagina_atual == "Serviços":
+                pagina_servicos()
+            elif pagina_atual == "Produtos":
+                pagina_produtos()
+            else:
+                st.write("Página não encontrada")
+
+if __name__ == "__main__":
+    main()
+def salvar_agendamento(cliente_id, servico_id, data_hora):
+    criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO agendamentos (cliente_id, servico_id, data_hora, criado_em)
+        VALUES (?, ?, ?, ?)
+    ''', (cliente_id, servico_id, data_hora, criado_em))
+    conn.commit()
+
+def carregar_agendamentos(ativos=True):
+    status = 'ativo' if ativos else 'cancelado'
+    cursor.execute('''
+        SELECT a.id, c.nome, s.nome, a.data_hora 
+        FROM agendamentos a
+        JOIN clientes c ON a.cliente_id = c.id
+        JOIN servicos s ON a.servico_id = s.id
+        WHERE a.status = ?
+        ORDER BY a.data_hora
+    ''', (status,))
+    return cursor.fetchall()
+
+def cancelar_agendamento(agendamento_id):
+    cursor.execute("UPDATE agendamentos SET status = 'cancelado' WHERE id = ?", (agendamento_id,))
+    conn.commit()
 
 def pagina_agendamentos():
     st.title("Agendamentos")
-    clientes = carregar_clientes()
-    servicos = carregar_servicos()
-
-    with st.expander("Agendar Serviço"):
+    with st.expander("Novo Agendamento"):
         with st.form("form_agendamento", clear_on_submit=True):
-            cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1]) if clientes else None
-            servico = st.selectbox("Serviço", servicos, format_func=lambda x: x[1]) if servicos else None
-            from datetime import datetime
-            data = st.date_input("Data")
-            hora = st.time_input("Hora")
-            data_hora = datetime.combine(data, hora)                 
-            submitted = st.form_submit_button("Agendar")
+            clientes = carregar_clientes(ativos=True)
+            clientes_dict = {f"{nome} (ID:{cid})": cid for cid, nome, _ in clientes}
+            servicos = carregar_servicos()
+            servicos_dict = {f"{nome} (ID:{sid})": sid for sid, nome, *_ in servicos}
+
+            cliente_selecionado = st.selectbox("Cliente", list(clientes_dict.keys()))
+            servico_selecionado = st.selectbox("Serviço", list(servicos_dict.keys()))
+            data_hora = st.datetime_input("Data e Hora do Agendamento", value=datetime.now())
+
+            submitted = st.form_submit_button("Salvar Agendamento")
             if submitted:
-                if cliente and servico:
-                    salvar_agendamento(cliente[0], servico[0], data_hora.strftime("%Y-%m-%d %H:%M:%S"))
+                if not cliente_selecionado or not servico_selecionado:
+                    st.error("Cliente e Serviço são obrigatórios")
+                else:
+                    salvar_agendamento(clientes_dict[cliente_selecionado], servicos_dict[servico_selecionado], data_hora.strftime("%Y-%m-%d %H:%M:%S"))
                     st.success("Agendamento salvo!")
                     st.experimental_rerun()
-                else:
-                    st.warning("Cadastre clientes e serviços primeiro.")
 
     st.subheader("Agendamentos Ativos")
-    agendamentos = carregar_agendamentos()
-    for a in agendamentos:
-        col1, col2, col3, col4, col5 = st.columns([2,3,3,3,2])
+    agendamentos = carregar_agendamentos(ativos=True)
+    for aid, nome_cliente, nome_servico, data_h in agendamentos:
+        col1, col2, col3, col4 = st.columns([4,4,3,1])
         with col1:
-            st.write(a[0])
+            st.write(nome_cliente)
         with col2:
-            st.write(a[1])
+            st.write(nome_servico)
         with col3:
-            st.write(a[2])
+            st.write(data_h)
         with col4:
-            st.write(a[3])
-        with col5:
-            if st.button(f"Cancelar {a[0]}"):
-                cancelar_agendamento(a[0])
+            if st.button(f"Cancelar {aid}"):
+                cancelar_agendamento(aid)
                 st.success("Agendamento cancelado")
                 st.experimental_rerun()
+def salvar_venda(cliente_id, servico_id, produto_id, quantidade, valor, forma_pagamento):
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO vendas (cliente_id, servico_id, produto_id, quantidade, valor, forma_pagamento, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (cliente_id, servico_id, produto_id, quantidade, valor, forma_pagamento, data_atual))
+    conn.commit()
+
+def carregar_vendas():
+    cursor.execute('''
+        SELECT v.id, c.nome, s.nome, p.nome, v.quantidade, v.valor, v.forma_pagamento, v.data
+        FROM vendas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        LEFT JOIN servicos s ON v.servico_id = s.id
+        LEFT JOIN produtos p ON v.produto_id = p.id
+        ORDER BY v.data DESC
+    ''')
+    return cursor.fetchall()
 
 def pagina_vendas():
     st.title("Vendas")
 
-    # Inicializar carrinho unificado na sessão
-    if "carrinho" not in st.session_state:
-        st.session_state.carrinho = []
+    clientes = carregar_clientes(ativos=True)
+    clientes_dict = {f"{nome} (ID:{cid})": cid for cid, nome, _ in clientes}
 
-    clientes = carregar_clientes()
     servicos = carregar_servicos()
+    servicos_dict = {f"{nome} (ID:{sid})": sid for sid, nome, *_ in servicos}
+
     produtos = carregar_produtos()
+    produtos_dict = {f"{nome} (ID:{pid}) - R$ {preco_venda:.2f}": (pid, preco_venda) for pid, nome, _, _, preco_venda, _ in produtos}
 
-    # Formulário para adicionar serviços
-    with st.expander("Adicionar Serviço ao Carrinho"):
-        with st.form("form_add_servico_unificado"):
-            if clientes and servicos:
-                cliente_s = st.selectbox("Cliente", clientes, format_func=lambda x: x[1], key="cliente_servico")
-                servico_s = st.selectbox("Serviço", servicos, format_func=lambda x: x[1])
-                forma_s = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão Crédito", "Cartão Débito"], key="forma_pagamento_servico")
-                submit_servico = st.form_submit_button("Adicionar Serviço")
-                if submit_servico:
-                    st.session_state.carrinho.append({
-                        "tipo": "servico",
-                        "cliente_id": cliente_s[0],
-                        "cliente_nome": cliente_s[1],
-                        "id": servico_s[0],
-                        "nome": servico_s[1],
-                        "quantidade": 1,
-                        "valor_unitario": servico_s[4],
-                        "valor_total": servico_s[4],
-                        "forma_pagamento": forma_s
-                    })
-                    st.success(f"Serviço '{servico_s[1]}' adicionado ao carrinho.")
+    with st.form("form_venda", clear_on_submit=True):
+        cliente_selecionado = st.selectbox("Cliente", list(clientes_dict.keys()))
+        servico_selecionado = st.selectbox("Serviço", ["Nenhum"] + list(servicos_dict.keys()))
+        produto_selecionado = st.selectbox("Produto", ["Nenhum"] + list(produtos_dict.keys()))
+        quantidade = st.number_input("Quantidade (para produto)", min_value=1, step=1, value=1)
 
-    # Formulário para adicionar produtos
-    with st.expander("Adicionar Produto ao Carrinho"):
-        with st.form("form_add_produto_unificado"):
-            if clientes and produtos:
-                cliente_p = st.selectbox("Cliente", clientes, format_func=lambda x: x[1], key="cliente_produto")
-                produto_p = st.selectbox("Produto", produtos, format_func=lambda x: x[1])
-                quantidade_p = st.number_input("Quantidade", min_value=1, step=1)
-                forma_p = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Cartão Crédito", "Cartão Débito"], key="forma_pagamento_produto")
-                submit_produto = st.form_submit_button("Adicionar Produto")
-                if submit_produto:
-                    if produto_p[5] < quantidade_p:
-                        st.warning(f"Estoque insuficiente para '{produto_p[1]}'. Disponível: {produto_p[5]}")
-                    else:
-                        st.session_state.carrinho.append({
-                            "tipo": "produto",
-                            "cliente_id": cliente_p[0],
-                            "cliente_nome": cliente_p[1],
-                            "id": produto_p[0],
-                            "nome": produto_p[1],
-                            "quantidade": quantidade_p,
-                            "valor_unitario": produto_p[4],
-                            "valor_total": produto_p[4] * quantidade_p,
-                            "forma_pagamento": forma_p
-                        })
-                        st.success(f"Produto '{produto_p[1]}' (x{quantidade_p}) adicionado ao carrinho.")
+        formas_pagamento = ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix"]
+        forma_pagamento = st.selectbox("Forma de Pagamento", formas_pagamento)
 
-    # Mostrar o carrinho
-    st.subheader("Carrinho de Compras")
-    if st.session_state.carrinho:
-        total_geral = 0
-        remover_indices = []
-        for i, item in enumerate(st.session_state.carrinho):
-            st.write(f"{i+1}. [{item['tipo'].capitalize()}] {item['nome']} - Qtde: {item['quantidade']} - R$ {item['valor_total']:.2f} - Cliente: {item['cliente_nome']} - Pagamento: {item['forma_pagamento']}")
-            total_geral += item['valor_total']
-            if st.button(f"Remover item {i+1}", key=f"remover_{i}"):
-                remover_indices.append(i)
-        # Remover itens selecionados
-        if remover_indices:
-            for index in sorted(remover_indices, reverse=True):
-                st.session_state.carrinho.pop(index)
-            st.experimental_rerun()
+        submitted = st.form_submit_button("Finalizar Venda")
+        if submitted:
+            if not cliente_selecionado:
+                st.error("Selecione um cliente")
+            else:
+                cid = clientes_dict[cliente_selecionado]
+                sid = servicos_dict.get(servico_selecionado) if servico_selecionado != "Nenhum" else None
+                pid, preco_unitario = produtos_dict.get(produto_selecionado, (None, 0)) if produto_selecionado != "Nenhum" else (None, 0)
+                qtd = quantidade if pid else 0
+                valor_total = 0.0
 
-        st.write(f"**Total Geral: R$ {total_geral:.2f}**")
+                if sid:
+                    # Pega valor do serviço
+                    cursor.execute("SELECT valor FROM servicos WHERE id = ?", (sid,))
+                    valor_servico = cursor.fetchone()
+                    valor_servico = valor_servico[0] if valor_servico else 0
+                    valor_total += valor_servico
 
-        # Finalizar venda para todos os itens do carrinho
-        if st.button("Finalizar Venda - Todos os Itens"):
-            erros = False
-            for item in st.session_state.carrinho:
-                if item["tipo"] == "servico":
-                    salvar_venda_servico(item["cliente_id"], item["id"], item["valor_total"], item["forma_pagamento"])
-                else:  # produto
-                    ok, msg = salvar_venda_produto(item["cliente_id"], item["id"], item["quantidade"], item["forma_pagamento"])
-                    if not ok:
-                        st.error(f"Erro ao vender '{item['nome']}': {msg}")
-                        erros = True
-            if not erros:
-                st.success("Todas as vendas foram registradas com sucesso!")
-                st.session_state.carrinho.clear()
-                st.experimental_rerun()
-    else:
-        st.info("Carrinho vazio. Adicione produtos ou serviços.")
+                if pid:
+                    valor_total += preco_unitario * qtd
+
+                if valor_total <= 0:
+                    st.error("Selecione um serviço ou produto válido para venda")
+                else:
+                    salvar_venda(cid, sid, pid, qtd, valor_total, forma_pagamento)
+                    st.success(f"Venda registrada! Total: R$ {valor_total:.2f}")
+                    st.experimental_rerun()
+
+    st.subheader("Últimas Vendas")
+    vendas = carregar_vendas()
+    for vid, nome_cliente, nome_servico, nome_produto, qtd, valor, forma, data_venda in vendas[:10]:
+        col1, col2, col3, col4, col5, col6 = st.columns([3,3,3,2,2,3])
+        with col1:
+            st.write(nome_cliente)
+        with col2:
+            st.write(nome_servico if nome_servico else "-")
+        with col3:
+            st.write(nome_produto if nome_produto else "-")
+        with col4:
+            st.write(qtd if qtd else "-")
+        with col5:
+            st.write(f"R$ {valor:.2f}")
+        with col6:
+            st.write(f"{forma} - {data_venda}")
+def salvar_despesa(descricao, valor, data, quantidade, observacao):
+    cursor.execute('''
+        INSERT INTO despesas (descricao, valor, data, quantidade, observacao)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (descricao, valor, data, quantidade, observacao))
+    conn.commit()
+
+def carregar_despesas(data_inicio=None, data_fim=None):
+    query = "SELECT id, descricao, valor, data, quantidade, observacao FROM despesas"
+    params = []
+    if data_inicio and data_fim:
+        query += " WHERE date(data) BETWEEN ? AND ?"
+        params.extend([data_inicio, data_fim])
+    query += " ORDER BY data DESC"
+    cursor.execute(query, params)
+    return cursor.fetchall()
 
 def pagina_despesas():
     st.title("Despesas")
-    with st.expander("Registrar Nova Despesa"):
+    with st.expander("Nova Despesa"):
         with st.form("form_despesa", clear_on_submit=True):
             descricao = st.text_input("Descrição")
             valor = st.number_input("Valor", min_value=0.0, format="%.2f")
             data = st.date_input("Data", value=date.today())
             quantidade = st.number_input("Quantidade", min_value=1, step=1)
             observacao = st.text_area("Observação")
-            submitted = st.form_submit_button("Salvar Despesa")
+            submitted = st.form_submit_button("Salvar")
             if submitted:
                 if not descricao.strip():
                     st.error("Descrição é obrigatória")
                 else:
                     salvar_despesa(descricao, valor, data.strftime("%Y-%m-%d"), quantidade, observacao)
-                    st.success("Despesa registrada!")
+                    st.success("Despesa registrada com sucesso!")
                     st.experimental_rerun()
 
-    st.subheader("Despesas Registradas")
+    st.subheader("Despesas Recentes")
     despesas = carregar_despesas()
     for d in despesas:
         st.write(f"{d[1]} - R$ {d[2]:.2f} - Data: {d[3]} - Qtde: {d[4]} - Obs: {d[5]}")
+import plotly.express as px
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
+import pandas as pd
+
+def gerar_pdf_vendas(data_inicio=None, data_fim=None):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    largura, altura = letter
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, altura - 50, "Relatório de Vendas")
+
+    query = '''
+        SELECT v.id, c.nome, s.nome, p.nome, v.quantidade, v.valor, v.forma_pagamento, v.data
+        FROM vendas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        LEFT JOIN servicos s ON v.servico_id = s.id
+        LEFT JOIN produtos p ON v.produto_id = p.id
+        ORDER BY v.data DESC
+    '''
+    params = []
+    if data_inicio and data_fim:
+        query += " WHERE date(v.data) BETWEEN ? AND ?"
+        params.extend([data_inicio, data_fim])
+    cursor.execute(query, params)
+    vendas = cursor.fetchall()
+
+    y = altura - 80
+    for v in vendas:
+        texto = f"ID {v[0]} - Cliente: {v[1]} - Serviço: {v[2]} - Produto: {v[3]} - Qtde: {v[4]} - Valor: R$ {v[5]:.2f} - Pagto: {v[6]} - Data: {v[7]}"
+        c.drawString(50, y, texto)
+        y -= 15
+        if y < 50:
+            c.showPage()
+            y = altura - 50
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+def gerar_pdf_despesas(data_inicio=None, data_fim=None):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    largura, altura = letter
+
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, altura - 50, "Relatório de Despesas")
+
+    despesas = carregar_despesas(data_inicio, data_fim)
+
+    y = altura - 80
+    for d in despesas:
+        texto = f"ID {d[0]} - {d[1]} - Valor: R$ {d[2]:.2f} - Data: {d[3]} - Qtde: {d[4]} - Obs: {d[5]}"
+        c.drawString(50, y, texto)
+        y -= 15
+        if y < 50:
+            c.showPage()
+            y = altura - 50
+    c.save()
+    buffer.seek(0)
+    return buffer
 
 def pagina_relatorios():
     st.title("Relatórios")
 
-    st.subheader("Filtro por período")
+    st.subheader("Filtros")
     data_inicio = st.date_input("Data Início", value=date.today().replace(day=1))
     data_fim = st.date_input("Data Fim", value=date.today())
 
     st.markdown("---")
 
-    # Gráficos
-    st.subheader("Gráfico de Vendas por Data")
-    vendas = carregar_vendas(data_inicio=data_inicio.strftime("%Y-%m-%d"), data_fim=data_fim.strftime("%Y-%m-%d"))
+    # Gráfico Vendas
+    vendas = carregar_vendas()
     if vendas:
-        df_vendas = pd.DataFrame(vendas, columns=["ID", "Cliente", "Serviço", "Produto", "Qtde", "Valor", "Pagamento", "Data", "Status"])
+        df_vendas = pd.DataFrame(vendas, columns=["ID", "Cliente", "Serviço", "Produto", "Qtde", "Valor", "Pagamento", "Data"])
         df_vendas['Data'] = pd.to_datetime(df_vendas['Data']).dt.date
-        vendas_agrupadas = df_vendas.groupby('Data')['Valor'].sum().reset_index()
+        vendas_filtradas = df_vendas[(df_vendas['Data'] >= data_inicio) & (df_vendas['Data'] <= data_fim)]
+        vendas_agrupadas = vendas_filtradas.groupby('Data')['Valor'].sum().reset_index()
+
         fig_vendas = px.bar(vendas_agrupadas, x='Data', y='Valor', title="Vendas por Data", labels={"Valor": "R$"})
         st.plotly_chart(fig_vendas, use_container_width=True)
     else:
-        st.info("Sem vendas nesse período.")
+        st.info("Sem vendas para exibir")
 
-    st.subheader("Gráfico de Despesas por Data")
-    despesas = carregar_despesas(data_inicio=data_inicio.strftime("%Y-%m-%d"), data_fim=data_fim.strftime("%Y-%m-%d"))
+    # Gráfico Despesas
+    despesas = carregar_despesas(data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))
     if despesas:
         df_despesas = pd.DataFrame(despesas, columns=["ID", "Descrição", "Valor", "Data", "Quantidade", "Observação"])
         df_despesas['Data'] = pd.to_datetime(df_despesas['Data']).dt.date
         despesas_agrupadas = df_despesas.groupby('Data')['Valor'].sum().reset_index()
+
         fig_despesas = px.bar(despesas_agrupadas, x='Data', y='Valor', title="Despesas por Data", labels={"Valor": "R$"})
         st.plotly_chart(fig_despesas, use_container_width=True)
     else:
-        st.info("Sem despesas nesse período.")
+        st.info("Sem despesas para exibir")
 
-    # Botões para baixar PDF
     st.markdown("---")
-    st.subheader("Exportar Relatórios em PDF")
-    if st.button("Baixar Relatório de Vendas PDF"):
+    st.subheader("Exportar PDF")
+
+    if st.button("Exportar Relatório de Vendas PDF"):
         pdf_vendas = gerar_pdf_vendas(data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))
         st.download_button("Clique para baixar", data=pdf_vendas, file_name="relatorio_vendas.pdf", mime="application/pdf")
 
-    if st.button("Baixar Relatório de Despesas PDF"):
+    if st.button("Exportar Relatório de Despesas PDF"):
         pdf_despesas = gerar_pdf_despesas(data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))
         st.download_button("Clique para baixar", data=pdf_despesas, file_name="relatorio_despesas.pdf", mime="application/pdf")
-
-    if st.button("Baixar Resumo Financeiro PDF"):
-        pdf_resumo = gerar_pdf_resumo_financeiro(data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))
-        st.download_button("Clique para baixar", data=pdf_resumo, file_name="resumo_financeiro.pdf", mime="application/pdf")
-
 def pagina_sair():
     st.session_state["login"] = False
     st.session_state["pagina"] = "Login"
-    st.rerun()
-
-# --- Layout principal ---
+    st.experimental_rerun()
 def main():
     st.set_page_config(page_title="Sistema Estúdio de Beleza", layout="wide")
 
@@ -737,3 +666,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
