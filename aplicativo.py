@@ -116,16 +116,6 @@ CREATE TABLE IF NOT EXISTS despesas (
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS empresa (
-    nome TEXT,
-    cnpj TEXT,
-    endereco TEXT,
-    telefone TEXT,
-    email TEXT
-)
-""")
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS empresa (
     id INTEGER PRIMARY KEY,
     nome TEXT,
     cnpj TEXT,
