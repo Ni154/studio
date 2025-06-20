@@ -143,7 +143,7 @@ def menu_lateral_botao(opcoes, key):
 menu_opcoes = [
     "Início","Dashboard", "Clientes", "Agendamentos", "Serviços",
     "Produtos", "Vendas", "Despesas", "Relatórios",
-    "Cadastro da Empresa", "Importação", "Sair"
+    "Cadastro Empresa", "Importação", "Sair"
 ]
 
 # Login igual ao seu código original (sem alterações) ...
