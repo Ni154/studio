@@ -822,8 +822,7 @@ CREATE TABLE IF NOT EXISTS empresa (
 )
 """)
 conn.commit()
-
-   if menu == "Cadastro Empresa":
+   elif menu == "Cadastro Empresa":
     st.title("🏢 Cadastro da Empresa")
 
     empresa = cursor.execute("SELECT * FROM empresa WHERE id = 1").fetchone()
@@ -833,7 +832,6 @@ conn.commit()
         endereco = st.text_input("Endereço", value=empresa[3] if empresa else "")
         telefone = st.text_input("Telefone", value=empresa[4] if empresa else "")
         email = st.text_input("E-mail", value=empresa[5] if empresa else "")
-
         if st.form_submit_button("Salvar dados"):
             if empresa:
                 cursor.execute("""
