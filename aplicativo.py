@@ -992,4 +992,3 @@ elif menu == "Relatórios":
             st.error(f"Total de despesas no período: R$ {total:.2f}")
             fig = px.bar(df.groupby('data').sum(numeric_only=True).reset_index(), x='data', y='valor', title="Despesas por Dia")
             st.plotly_chart(fig)
-
