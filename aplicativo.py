@@ -812,7 +812,7 @@ CREATE TABLE IF NOT EXISTS empresa (
 """)
 conn.commit()
 
-elif menu == "Cadastro Empresa":
+    elif menu == "Cadastro Empresa":
     st.title("🏢 Cadastro da Empresa")
 
     # Tentar carregar dados atuais
