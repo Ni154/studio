@@ -108,7 +108,7 @@ elif menu == "Clientes":
         if st.form_submit_button("Salvar Cadastro"):
             cursor.execute("INSERT INTO clientes (nome, telefone, data_nascimento, instagram, cantor_favorito, bebida_favorita, assinatura) VALUES (?, ?, ?, ?, ?, ?, ?)", (nome, telefone, str(data_nascimento), instagram, cantor, bebida, assinatura_bytes))
             cliente_id = cursor.lastrowid
-            cursor.execute("INSERT INTO ficha_avaliacao (cliente_id, epilacao_anterio, alergia, qual_alergia, problema_pele, tratamento_dermatologico, tipo_pele, hidrata_pele, gravida, medicamento, qual_medicamento, dispositivo, diabete, pelos_encravados, cirurgia_recente, foliculite, qual_foliculite, outro_problema, qual_outro, autorizacao_imagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (cliente_id, epilacao, alergia, qual_alergia, problema_pele, tratamento, tipo_pele, hidrata, gravida, medicamento, qual_medicamento, dispositivo, diabete, encravado, cirurgia, foliculite, qual_foliculite, outro, qual_outro, imagem))
+            cursor.execute("INSERT INTO ficha_avaliacao (cliente_id, epilacao_anterio, alergia, qual_alergia, problema_pele, tratamento_dermatologico, tipo_pele, hidrata_pele, gravida, medicamento, qual_medicamento, dispositivo, diabete, pelos_encravados, cirurgia_recente, foliculite, qual_foliculite, outro_problema, qual_outro, autorizacao_imagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (cliente_id, epilacao, alergia, qual_alergia, problema_pele, tratamento, tipo_pele, hidrata, gravida, medicamento, qual_medicamento, dispositivo, diabete, encravado, cirurgia, foliculite, qual_foliculite, outro, qual_outro, imagem))
             conn.commit()
             st.success("Cadastro salvo com sucesso!")
 
@@ -116,8 +116,6 @@ elif menu == "Sair":
     st.session_state.logado = False
     st.experimental_rerun()
 
-# As demais páginas (Agendamentos, Serviços, Produtos, Vendas, Despesas, Relatórios)
-# serão adicionadas nas próximas partes, respeitando seu pedido de envio por partes se necessário.
 elif menu == "Agendamentos":
     st.title("📆 Agendamentos")
     with st.form("form_agendamento"):
@@ -157,6 +155,7 @@ elif menu == "Agendamentos":
                 cursor.execute("UPDATE agendamentos SET status = 'Cancelado' WHERE id = ?", (ag[0],))
                 conn.commit()
                 st.experimental_rerun()
+
 elif menu == "Serviços":
     st.title("📝 Cadastro de Serviços")
     with st.form("form_servico"):
@@ -191,6 +190,7 @@ elif menu == "Produtos":
     produtos = cursor.execute("SELECT nome, estoque, valor FROM produtos").fetchall()
     for p in produtos:
         st.write(f"**{p[0]}** — Estoque: {p[1]} | 💰 R$ {p[2]:.2f}")
+
 elif menu == "Vendas":
     st.title("💳 Painel de Vendas")
 
@@ -254,6 +254,7 @@ elif menu == "Vendas":
             st.session_state.carrinho = []
     else:
         st.info("Carrinho vazio.")
+
 elif menu == "Despesas":
     st.title("📉 Controle de Despesas")
 
@@ -319,53 +320,5 @@ elif menu == "Relatórios":
     # Saldo
     st.markdown("### 💰 Saldo Final")
     saldo = total_vendas - total_despesas
-    cor = "green" if saldo >= 0 else "red"
-    st.markdown(f"<h2 style='color:{cor}'>R$ {saldo:.2f}</h2>", unsafe_allow_html=True)
-# --- APLICAÇÃO DE TEMA CLÍNICO PERSONALIZADO ---
-st.markdown("""
-    <style>
-    html, body, [class*="css"] {
-        background-color: #f7f9fb;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .css-1d391kg { padding-top: 2rem; }
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-    .stSidebar {
-        background-color: #e3edf4;
-    }
-    .stButton > button {
-        background-color: #0099cc;
-        color: white;
-        border-radius: 5px;
-        height: 2.5em;
-        width: 100%;
-        font-weight: bold;
-    }
-    .stButton > button:hover {
-        background-color: #007399;
-    }
-    .stRadio > div {
-        background-color: #ffffff;
-        padding: 10px;
-        border-radius: 8px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-        
-        valor = st.number_input("Valor (R$)", step=0.5, min_value=0.0)
-        data_desp = st.date_input("Data da Despesa", value=date.today())
-        if st.form_submit_button("Registrar Despesa"):
-            cursor.execute("INSERT INTO despesas (descricao, valor, data) VALUES (?, ?, ?)",
-                           (desc, valor, str(data_desp)))
-            conn.commit()
-            st.success("Despesa registrada com sucesso!")
+    st.metric("Saldo Líquido", f"R$ {saldo:.2f}")
 
-    st.markdown("### 📋 Histórico de Despesas")
-    despesas = cursor.execute("SELECT descricao, valor, data FROM despesas ORDER BY data DESC").fetchall()
-    for d in despesas:
-        st.write(f"🧾 {d[0]} — R$ {d[1]:.2f} em {d[2]}")
