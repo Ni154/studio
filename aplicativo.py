@@ -800,21 +800,6 @@ elif menu == "Produtos":
                         st.experimental_rerun()
     else:
         st.info("Nenhum produto cadastrado ainda.")
-# Criação da tabela empresa (uma única empresa operando o sistema)
-cursor.execute("""
-# Criação da tabela empresa - isso deve estar no início do arquivo
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS empresa (
-    id INTEGER PRIMARY KEY,
-    nome TEXT,
-    cnpj TEXT,
-    telefone TEXT,
-    endereco TEXT,
-    email TEXT
-)
-""")
-conn.commit()
-# ... (aqui vem o restante do seu código anterior)
 
 if menu == "Cadastro Empresa":
     st.title("🏢 Cadastro da Empresa")
