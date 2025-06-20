@@ -259,6 +259,19 @@ elif menu == "Despesas":
 
     with st.form("form_despesa"):
         desc = st.text_input("Descrição da Despesa")
+        valor = st.number_input("Valor (R$)", step=0.5, min_value=0.0)
+        data_desp = st.date_input("Data da Despesa", value=date.today())
+        if st.form_submit_button("Registrar Despesa"):
+            cursor.execute("INSERT INTO despesas (descricao, valor, data) VALUES (?, ?, ?)",
+                           (desc, valor, str(data_desp)))
+            conn.commit()
+            st.success("Despesa registrada com sucesso!")
+
+    st.markdown("### 📋 Histórico de Despesas")
+    despesas = cursor.execute("SELECT descricao, valor, data FROM despesas ORDER BY data DESC").fetchall()
+    for d in despesas:
+        st.write(f"🧾 {d[0]} — R$ {d[1]:.2f} em {d[2]}")
+
 elif menu == "Relatórios":
     st.title("📊 Relatórios e Gráficos Financeiros")
 
