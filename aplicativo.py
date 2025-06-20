@@ -826,11 +826,9 @@ CREATE TABLE IF NOT EXISTS empresa (
 conn.commit()
 # ... (aqui vem o restante do seu código anterior)
 
-elif menu == "Cadastro Empresa":
-    st.title("🏢 Cadastro da Empresa")
-
+if menu == "Cadastro Empresa":
+    st.title("\U0001F3E2 Cadastro da Empresa")
     empresa = cursor.execute("SELECT * FROM empresa WHERE id = 1").fetchone()
-
     with st.form("form_empresa"):
         col1, col2 = st.columns(2)
         with col1:
@@ -840,26 +838,20 @@ elif menu == "Cadastro Empresa":
         with col2:
             endereco = st.text_input("Endereço", value=empresa[4] if empresa else "")
             email = st.text_input("E-mail", value=empresa[5] if empresa else "")
-
         if st.form_submit_button("Salvar dados"):
             if empresa:
                 cursor.execute("""
-                    UPDATE empresa
-                    SET nome=?, cnpj=?, telefone=?, endereco=?, email=?
-                    WHERE id = 1
+                    UPDATE empresa SET nome=?, cnpj=?, telefone=?, endereco=?, email=? WHERE id = 1
                 """, (nome, cnpj, telefone, endereco, email))
             else:
                 cursor.execute("""
-                    INSERT INTO empresa (id, nome, cnpj, telefone, endereco, email)
-                    VALUES (1, ?, ?, ?, ?, ?)
+                    INSERT INTO empresa (id, nome, cnpj, telefone, endereco, email) VALUES (1, ?, ?, ?, ?, ?)
                 """, (nome, cnpj, telefone, endereco, email))
             conn.commit()
             st.success("✅ Dados da empresa salvos com sucesso!")
 
-
 elif menu == "Vendas":
-    st.title("💳 Vendas")
-
+    st.title("\U0001F4B3 Vendas")
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
     servicos = cursor.execute("SELECT nome, valor FROM servicos").fetchall()
     produtos = cursor.execute("SELECT nome, valor, estoque FROM produtos").fetchall()
@@ -871,15 +863,11 @@ elif menu == "Vendas":
     with st.form("form_venda"):
         cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1])
         forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
-
-        # Produtos
         opcoes_produto = ["Nenhum"] + [p[0] for p in produtos]
         produto_selecionado = st.selectbox("Produto", opcoes_produto)
         quantidade_prod = 0
         if produto_selecionado != "Nenhum":
             quantidade_prod = st.number_input("Quantidade do produto", min_value=1, step=1, key="qtd_produto")
-
-        # Serviços
         opcoes_servico = ["Nenhum"] + [s[0] for s in servicos]
         servico_selecionado = st.selectbox("Serviço", opcoes_servico)
         quantidade_serv = 0
@@ -889,228 +877,64 @@ elif menu == "Vendas":
         if st.form_submit_button("Finalizar Venda"):
             total = 0.0
             venda_itens = []
-
-            # Processar produto
             if produto_selecionado != "Nenhum":
                 idx_prod = [p[0] for p in produtos].index(produto_selecionado)
                 estoque_atual = produtos[idx_prod][2]
                 valor_prod = produtos[idx_prod][1]
-
                 if estoque_atual < quantidade_prod:
                     st.error("Estoque insuficiente para o produto selecionado.")
                     st.stop()
-
                 total += valor_prod * quantidade_prod
                 venda_itens.append(("Produto", produto_selecionado, quantidade_prod, valor_prod))
-
-            # Processar serviço
             if servico_selecionado != "Nenhum":
                 idx_serv = [s[0] for s in servicos].index(servico_selecionado)
                 valor_serv = servicos[idx_serv][1]
                 total += valor_serv * quantidade_serv
                 venda_itens.append(("Serviço", servico_selecionado, quantidade_serv, valor_serv))
-
             if len(venda_itens) == 0:
                 st.error("Selecione pelo menos um produto ou serviço para realizar a venda.")
                 st.stop()
-
-            # Inserir venda
-            cursor.execute(
-                "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
-                (cliente[0], str(date.today()), forma_pagamento, total)
-            )
+            cursor.execute("INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)", (cliente[0], str(date.today()), forma_pagamento, total))
             venda_id = cursor.lastrowid
-
-            # Inserir itens da venda
             for tipo, nome, qtd, preco in venda_itens:
-                cursor.execute(
-                    "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
-                    (venda_id, tipo, nome, qtd, preco)
-                )
-                # Atualizar estoque se for produto
+                cursor.execute("INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)", (venda_id, tipo, nome, qtd, preco))
                 if tipo == "Produto":
-                    cursor.execute(
-                        "UPDATE produtos SET estoque = estoque - ? WHERE nome = ?",
-                        (qtd, nome)
-                    )
-
+                    cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE nome = ?", (qtd, nome))
             conn.commit()
             st.success(f"Venda finalizada com sucesso! Total: R$ {total:.2f}")
 
-            # Gerar comprovante e exibir
-            arquivo_comprovante, texto_comprovante = gerar_comprovante_venda(venda_id)
-            st.text_area("Comprovante de Venda", texto_comprovante, height=300)
-            with open(arquivo_comprovante, "rb") as f:
-                st.download_button(
-                    label="Download do Comprovante (.txt)",
-                    data=f,
-                    file_name=f"comprovante_venda_{venda_id}.txt",
-                    mime="text/plain"
-                )
 elif menu == "Dashboard":
-    st.title("📊 Dashboard da Empresa")
-
-    # Buscar dados empresa para mostrar nome e info principal
+    st.title("\U0001F4CA Dashboard da Empresa")
     empresa = cursor.execute("SELECT nome FROM empresa WHERE id=1").fetchone()
     if empresa:
         st.subheader(f"Empresa: {empresa[0]}")
     else:
         st.warning("Nenhuma empresa cadastrada. Cadastre no menu 'Cadastro Empresa'.")
-
     total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
     total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas").fetchone()[0]
-    vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status = 'Cancelada'").fetchone()
-    vendas_canceladas = vendas_canceladas[0] if vendas_canceladas else 0
+    vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status = 'Cancelada'").fetchone()[0]
     agend_cancelados = cursor.execute("SELECT COUNT(*) FROM agendamentos WHERE status = 'Cancelado'").fetchone()[0]
-
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Clientes Cadastrados", total_clientes)
     col2.metric("Vendas Realizadas", total_vendas)
     col3.metric("Vendas Canceladas", vendas_canceladas)
     col4.metric("Agendamentos Cancelados", agend_cancelados)
-elif menu == "Dashboard":
-    st.title("📊 Dashboard da Empresa")
 
-    # Buscar dados empresa para mostrar nome e info principal
-    empresa = cursor.execute("SELECT nome FROM empresa WHERE id=1").fetchone()
-    if empresa:
-        st.subheader(f"Empresa: {empresa[0]}")
-    else:
-        st.warning("Nenhuma empresa cadastrada. Cadastre no menu 'Cadastro Empresa'.")
-
-    total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-    total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas").fetchone()[0]
-    vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status = 'Cancelada'").fetchone()
-    vendas_canceladas = vendas_canceladas[0] if vendas_canceladas else 0
-    agend_cancelados = cursor.execute("SELECT COUNT(*) FROM agendamentos WHERE status = 'Cancelado'").fetchone()[0]
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Clientes Cadastrados", total_clientes)
-    col2.metric("Vendas Realizadas", total_vendas)
-    col3.metric("Vendas Canceladas", vendas_canceladas)
-    col4.metric("Agendamentos Cancelados", agend_cancelados)
-elif menu == "Cadastro Empresa":
-    st.title("🏢 Cadastro da Empresa")
-
-    # Tentar carregar dados existentes
-    empresa = cursor.execute("SELECT id, nome, cnpj, endereco, telefone, email FROM empresa WHERE id = 1").fetchone()
-
-    nome = ""
-    cnpj = ""
-    endereco = ""
-    telefone = ""
-    email = ""
-
-    if empresa:
-        nome, cnpj, endereco, telefone, email = empresa[1], empresa[2], empresa[3], empresa[4], empresa[5]
-
-    with st.form("form_empresa"):
-        nome_input = st.text_input("Nome da Empresa", value=nome)
-        cnpj_input = st.text_input("CNPJ", value=cnpj)
-        endereco_input = st.text_input("Endereço", value=endereco)
-        telefone_input = st.text_input("Telefone", value=telefone)
-        email_input = st.text_input("E-mail", value=email)
-
-        if st.form_submit_button("Salvar Dados"):
-            if not nome_input.strip():
-                st.error("O nome da empresa é obrigatório.")
-            else:
-                if empresa:
-                    # Atualizar
-                    cursor.execute("""
-                        UPDATE empresa SET nome=?, cnpj=?, endereco=?, telefone=?, email=? WHERE id=1
-                    """, (nome_input, cnpj_input, endereco_input, telefone_input, email_input))
-                else:
-                    # Inserir
-                    cursor.execute("""
-                        INSERT INTO empresa (id, nome, cnpj, endereco, telefone, email) VALUES (1, ?, ?, ?, ?, ?)
-                    """, (nome_input, cnpj_input, endereco_input, telefone_input, email_input))
-                conn.commit()
-                st.success("Dados da empresa salvos com sucesso!")
-def gerar_comprovante_venda(venda_id):
-    venda = cursor.execute("SELECT v.data, v.forma_pagamento, v.total, c.nome FROM vendas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE v.id = ?", (venda_id,)).fetchone()
-    itens = cursor.execute("SELECT tipo, nome, quantidade, preco FROM vendas_itens WHERE venda_id = ?", (venda_id,)).fetchall()
-    empresa = cursor.execute("SELECT nome, cnpj, endereco, telefone, email FROM empresa WHERE id = 1").fetchone()
-
-    texto = []
-    texto.append("========== COMPROVANTE DE VENDA ==========")
-    texto.append(f"Data: {venda[0]}   -   Cliente: {venda[3]}")
-    texto.append(f"Forma de Pagamento: {venda[1]}")
-    texto.append("------------------------------------------")
-    texto.append("Tipo     | Nome                | Qtd | Valor")
-    texto.append("------------------------------------------")
-    for item in itens:
-        tipo, nome, qtd, preco = item
-        total_item = qtd * preco
-        texto.append(f"{tipo:<8} {nome:<18} {qtd:>3} x R$ {preco:.2f} = R$ {total_item:.2f}")
-    texto.append("------------------------------------------")
-    texto.append(f"TOTAL GERAL: R$ {venda[2]:.2f}")
-    texto.append("------------------------------------------")
-    if empresa:
-        texto.append("")
-        texto.append(f"{empresa[0]} - CNPJ: {empresa[1]}")
-        texto.append(f"Endereço: {empresa[2]}")
-        texto.append(f"Telefone: {empresa[3]} | Email: {empresa[4]}")
-    texto.append("==========================================")
-
-    nome_arquivo = f"comprovante_venda_{venda_id}.txt"
-    caminho = os.path.join("comprovantes", nome_arquivo)
-    if not os.path.exists("comprovantes"):
-        os.makedirs("comprovantes")
-
-    with open(caminho, "w", encoding="utf-8") as f:
-        f.write("\n".join(texto))
-
-    return caminho, "\n".join(texto)
-    texto.append("Tipo     | Nome                | Qtd | Preço")
-    texto.append("------------------------------------------")
-    for item in itens:
-        tipo, nome, qtd, preco = item
-        texto.append(f"{tipo:<9}{nome:<20} {qtd:>3}  R$ {preco:.2f}")
-    texto.append("------------------------------------------")
-    texto.append(f"TOTAL: R$ {venda[2]:.2f}")
-    texto.append("")
-
-    if empresa:
-        texto.append("------ Dados da Empresa ------")
-        texto.append(f"{empresa[0]}")  # nome
-        if empresa[1]: texto.append(f"CNPJ: {empresa[1]}")
-        if empresa[2]: texto.append(f"Endereço: {empresa[2]}")
-        if empresa[3]: texto.append(f"Telefone: {empresa[3]}")
-        if empresa[4]: texto.append(f"E-mail: {empresa[4]}")
-    texto.append("==========================================")
-
-    nome_arquivo = f"comprovante_venda_{venda_id}.txt"
-    caminho = os.path.join("comprovantes", nome_arquivo)
-
-    if not os.path.exists("comprovantes"):
-        os.makedirs("comprovantes")
-
-    with open(caminho, "w", encoding="utf-8") as f:
-        f.write("\n".join(texto))
-
-    return caminho, "\n".join(texto)
 elif menu == "Produtos":
-    st.title("📦 Produtos")
-
+    st.title("\U0001F4E6 Produtos")
     with st.form("form_produtos"):
         nome = st.text_input("Nome do produto")
         estoque = st.number_input("Estoque", min_value=0, step=1)
         preco_custo = st.number_input("Preço de Custo R$", min_value=0.0, step=0.1, format="%.2f")
         valor = st.number_input("Valor de Venda R$", min_value=0.0, step=0.1, format="%.2f")
-
         if st.form_submit_button("Cadastrar Produto"):
             if not nome.strip():
                 st.error("O nome do produto é obrigatório.")
             else:
-                cursor.execute(
-                    "INSERT INTO produtos (nome, estoque, preco_custo, valor) VALUES (?, ?, ?, ?)",
-                    (nome, estoque, preco_custo, valor)
-                )
+                cursor.execute("INSERT INTO produtos (nome, estoque, preco_custo, valor) VALUES (?, ?, ?, ?)", (nome, estoque, preco_custo, valor))
                 conn.commit()
                 st.success("✅ Produto cadastrado com sucesso.")
-
-    st.markdown("### 📋 Estoque de Produtos")
+    st.markdown("### \U0001F4CB Estoque de Produtos")
     produtos = cursor.execute("SELECT id, nome, estoque, preco_custo, valor FROM produtos").fetchall()
     if produtos:
         for p in produtos:
@@ -1119,71 +943,52 @@ elif menu == "Produtos":
                 novo_estoque = st.number_input("Editar Estoque", value=p[2], step=1, key=f"estoque_{p[0]}")
                 novo_custo = st.number_input("Editar Preço de Custo", value=p[3] or 0.0, step=0.1, format="%.2f", key=f"custo_{p[0]}")
                 novo_valor = st.number_input("Editar Valor de Venda", value=p[4], step=0.1, format="%.2f", key=f"valor_{p[0]}")
-
                 if st.button("Salvar Alterações", key=f"salvar_{p[0]}"):
-                    cursor.execute("""
-                        UPDATE produtos
-                        SET nome = ?, estoque = ?, preco_custo = ?, valor = ?
-                        WHERE id = ?
-                    """, (novo_nome, novo_estoque, novo_custo, novo_valor, p[0]))
+                    cursor.execute("UPDATE produtos SET nome = ?, estoque = ?, preco_custo = ?, valor = ? WHERE id = ?", (novo_nome, novo_estoque, novo_custo, novo_valor, p[0]))
                     conn.commit()
                     st.success("Alterações salvas com sucesso.")
                     st.experimental_rerun()
     else:
         st.info("Nenhum produto cadastrado ainda.")
-elif menu == "Relatórios":
-    st.title("📊 Relatórios")
 
+elif menu == "Relatórios":
+    st.title("\U0001F4CA Relatórios")
     empresa = cursor.execute("SELECT nome, cnpj, endereco, telefone, email FROM empresa WHERE id = 1").fetchone()
     if empresa:
-        st.markdown(f"### 🏢 {empresa[0]}")
+        st.markdown(f"### \U0001F3E2 {empresa[0]}")
         if empresa[1]: st.markdown(f"**CNPJ:** {empresa[1]}")
         if empresa[2]: st.markdown(f"**Endereço:** {empresa[2]}")
         if empresa[3]: st.markdown(f"**Telefone:** {empresa[3]}")
         if empresa[4]: st.markdown(f"**E-mail:** {empresa[4]}")
         st.markdown("---")
-
     tipo_rel = st.selectbox("Tipo de relatório", ["Vendas", "Despesas"])
     data_ini = st.date_input("Data inicial", value=date(2023, 1, 1))
     data_fim = st.date_input("Data final", value=date.today())
-
     if data_ini > data_fim:
         st.error("Data inicial não pode ser maior que a final.")
         st.stop()
-
     if tipo_rel == "Vendas":
-        query = """
-            SELECT v.data, v.forma_pagamento, v.total, c.nome
-            FROM vendas v
-            LEFT JOIN clientes c ON v.cliente_id = c.id
-            WHERE date(v.data) BETWEEN ? AND ?
-        """
+        query = "SELECT v.data, v.forma_pagamento, v.total, c.nome FROM vendas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE date(v.data) BETWEEN ? AND ?"
         df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
-
         if df.empty:
             st.warning("Nenhum dado de vendas encontrado no período.")
         else:
-            st.markdown("### 📄 Relatório de Vendas")
+            st.markdown("### \U0001F4C4 Relatório de Vendas")
             st.dataframe(df)
             total = df["total"].sum()
             st.success(f"Total vendido no período: R$ {total:.2f}")
-            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='total', title="Total de Vendas por Dia")
+            fig = px.bar(df.groupby('data').sum(numeric_only=True).reset_index(), x='data', y='total', title="Vendas por Dia")
             st.plotly_chart(fig)
-
-    else:  # Despesas
-               query = """
-            SELECT descricao, valor, data
-            FROM despesas
-            WHERE date(data) BETWEEN ? AND ?
-        """
+    else:
+        query = "SELECT descricao, valor, data FROM despesas WHERE date(data) BETWEEN ? AND ?"
         df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
-
         if df.empty:
             st.warning("Nenhum dado de despesas encontrado no período.")
         else:
-            st.markdown("### 📄 Relatório de Despesas")
+            st.markdown("### \U0001F4C4 Relatório de Despesas")
             st.dataframe(df)
             total = df["valor"].sum()
             st.error(f"Total de despesas no período: R$ {total:.2f}")
-            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='valor', title="Despesas por Dia")
+            fig = px.bar(df.groupby('data').sum(numeric_only=True).reset_index(), x='data', y='valor', title="Despesas por Dia")
             st.plotly_chart(fig)
+
