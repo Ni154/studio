@@ -87,60 +87,87 @@ if not st.session_state.logado:
     st.stop()
 
 # --- Menu lateral fixo e estilizado ---
-def sidebar_button(label, key, icon=""):
-    # botão estilo quadrado, largura 100%, padding e hover
-    st.markdown(f"""
+def menu_lateral(opcao_atual):
+    st.markdown("""
     <style>
-    div.stButton > button[data-baseweb="button"] {{
-        width: 100%;
+    .menu-lateral {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 180px;
+        background-color: #e3edf4;
+        padding: 20px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+    .botao-menu {
+        padding: 10px 15px;
         border-radius: 0;
-        margin: 0 0 10px 0;
-        padding: 10px 0;
-        font-weight: 600;
+        border: none;
         font-size: 16px;
-        color: #004466;
-        background-color: #cce6ff;
-        border: 1px solid #004466;
+        font-weight: 600;
+        background-color: #0099cc;
+        color: white;
+        cursor: pointer;
+        width: 100%;
         text-align: left;
-        transition: background-color 0.3s ease;
-    }}
-    div.stButton > button[data-baseweb="button"]:hover {{
-        background-color: #99ccff;
-        color: #003355;
-    }}
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s ease;
+    }
+    .botao-menu:hover {
+        background-color: #007399;
+    }
+    .botao-menu-selecionado {
+        background-color: #005f73 !important;
+    }
+    .conteudo {
+        margin-left: 200px;
+        padding: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
-    return st.button(label, key=key)
 
-menu_opcoes = [
-    ("Início", "menu_inicio"),
-    ("Clientes", "menu_clientes"),
-    ("Agendamentos", "menu_agendamentos"),
-    ("Serviços", "menu_servicos"),
-    ("Produtos", "menu_produtos"),
-    ("Vendas", "menu_vendas"),
-    ("Despesas", "menu_despesas"),
-    ("Relatórios", "menu_relatorios"),
-    ("Sair", "menu_sair")
-]
+    opcoes = [
+        ("Início", "🏠"),
+        ("Clientes", "👩"),
+        ("Agendamentos", "📅"),
+        ("Serviços", "📝"),
+        ("Produtos", "📦"),
+        ("Vendas", "💳"),
+        ("Despesas", "📉"),
+        ("Relatórios", "📊"),
+        ("Sair", "🚪")
+    ]
 
-st.sidebar.markdown("## 📋 Menu")
+    for nome, icone in opcoes:
+        classe = "botao-menu"
+        if opcao_atual == nome:
+            classe += " botao-menu-selecionado"
+        if st.button(f"{icone}  {nome}", key=f"menu_{nome}"):
+            st.session_state.menu_selecionado = nome
 
-menu_selecionado = None
-for label, key in menu_opcoes:
-    if sidebar_button(label, key):
-        menu_selecionado = label
-        st.session_state.menu = label
+if "menu_selecionado" not in st.session_state:
+    st.session_state.menu_selecionado = "Início"
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "Início"
+# Renderiza menu lateral fixo
+st.markdown('<div class="menu-lateral">', unsafe_allow_html=True)
+menu_lateral(st.session_state.menu_selecionado)
+st.markdown('</div>', unsafe_allow_html=True)
 
-menu = menu_selecionado if menu_selecionado else st.session_state.menu
+# Conteúdo principal com margem à esquerda para não ficar atrás do menu
+st.markdown('<div class="conteudo">', unsafe_allow_html=True)
 
-# --- Conteúdo das páginas ---
+menu = st.session_state.menu_selecionado
+
 if menu == "Início":
     st.title("🌿 Bem-vinda ao Studio de Depilação")
-    st.markdown("Use o menu à esquerda para navegar no sistema.")
+    st.markdown("Use o menu lateral para navegar no sistema.")
 
 elif menu == "Clientes":
     st.title("👩 Cadastro de Clientes + Ficha de Avaliação")
@@ -193,7 +220,6 @@ elif menu == "Clientes":
             imagem = st.radio("Autoriza uso de imagem?", ["SIM", "NÃO"], key="imagem")
 
         if st.form_submit_button("Salvar Cadastro"):
-            # Validação simples
             if not nome.strip():
                 st.error("O nome do cliente é obrigatório.")
             else:
@@ -276,16 +302,16 @@ elif menu == "Serviços":
             conn.commit()
             st.success("Serviço salvo com sucesso!")
 
-    st.markdown("### 📋 Lista de Serviços")
-    servicos = cursor.execute("SELECT nome, descricao, duracao, valor FROM servicos").fetchall()
+    st.markdown("### Serviços Cadastrados")
+    servicos = cursor.execute("SELECT id, nome, descricao, duracao, valor FROM servicos").fetchall()
     for s in servicos:
-        st.write(f"**{s[0]}** — {s[1]} | ⏱️ {s[2]} min | 💰 R$ {s[3]:.2f}")
+        st.write(f"**{s[1]}** - {s[2]} - Duração: {s[3]} min - R$ {s[4]:.2f}")
 
 elif menu == "Produtos":
     st.title("📦 Cadastro de Produtos")
     with st.form("form_produto"):
         nome_prod = st.text_input("Nome do Produto", key="nome_produto")
-        estoque = st.number_input("Estoque", step=1, min_value=0, key="estoque_produto")
+        estoque = st.number_input("Estoque", min_value=0, step=1, key="estoque_produto")
         valor_prod = st.number_input("Valor (R$)", step=0.5, min_value=0.0, key="valor_produto")
         if st.form_submit_button("Salvar Produto"):
             cursor.execute(
@@ -295,87 +321,77 @@ elif menu == "Produtos":
             conn.commit()
             st.success("Produto salvo com sucesso!")
 
-    st.markdown("### 📋 Lista de Produtos")
-    produtos = cursor.execute("SELECT nome, estoque, valor FROM produtos").fetchall()
+    st.markdown("### Produtos Cadastrados")
+    produtos = cursor.execute("SELECT id, nome, estoque, valor FROM produtos").fetchall()
     for p in produtos:
-        st.write(f"**{p[0]}** — Estoque: {p[1]} | 💰 R$ {p[2]:.2f}")
+        st.write(f"**{p[1]}** - Estoque: {p[2]} - R$ {p[3]:.2f}")
 
 elif menu == "Vendas":
     st.title("💳 Painel de Vendas")
-
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
-    produtos = cursor.execute("SELECT nome, valor FROM produtos").fetchall()
     servicos = cursor.execute("SELECT nome, valor FROM servicos").fetchall()
+    produtos = cursor.execute("SELECT nome, valor, estoque FROM produtos").fetchall()
 
     if not clientes:
-        st.warning("Cadastre pelo menos um cliente para iniciar vendas.")
+        st.warning("Cadastre clientes antes de realizar vendas.")
         st.stop()
 
-    cliente_venda = st.selectbox("Cliente", clientes, format_func=lambda x: x[1], key="cliente_venda")
+    with st.form("form_venda"):
+        cliente_sel = st.selectbox("Cliente", clientes, format_func=lambda x: x[1], key="venda_cliente")
+        forma_pagamento = st.selectbox("Forma de Pagamento", ["Pix", "Dinheiro", "Crédito", "Débito"], key="forma_pagamento")
 
-    st.markdown("### 🛒 Adicionar ao Carrinho")
-    if "carrinho" not in st.session_state:
-        st.session_state.carrinho = []
+        st.markdown("### Serviços")
+        servicos_venda = {}
+        for s in servicos:
+            quantidade = st.number_input(f"{s[0]} (R$ {s[1]:.2f}) - Quantidade", min_value=0, max_value=10, step=0, key=f"servico_{s[0]}")
+            if quantidade > 0:
+                servicos_venda[s[0]] = {"quantidade": quantidade, "preco": s[1]}
 
-    col1, col2 = st.columns(2)
-    with col1:
-        item_tipo = st.radio("Tipo", ["Produto", "Serviço"], key="tipo_item")
-    with col2:
-        if item_tipo == "Produto":
-            itens = [f"{p[0]} - R$ {p[1]:.2f}" for p in produtos]
-        else:
-            itens = [f"{s[0]} - R$ {s[1]:.2f}" for s in servicos]
-        item_selecionado = st.selectbox("Item", itens, key="item_selecionado")
+        st.markdown("### Produtos")
+        produtos_venda = {}
+        for p in produtos:
+            quantidade = st.number_input(f"{p[0]} (R$ {p[1]:.2f}, Estoque: {p[2]}) - Quantidade", min_value=0, max_value=p[2], step=0, key=f"produto_{p[0]}")
+            if quantidade > 0:
+                produtos_venda[p[0]] = {"quantidade": quantidade, "preco": p[1]}
 
-    qtd = st.number_input("Quantidade", min_value=1, step=1, key="quantidade_item")
-    if st.button("Adicionar ao Carrinho", key="btn_add_carrinho"):
-        nome_item = item_selecionado.split(" - ")[0]
-        preco_item = float(item_selecionado.split("R$ ")[-1])
-        st.session_state.carrinho.append({"tipo": item_tipo, "nome": nome_item, "qtd": qtd, "preco": preco_item})
-        st.success(f"{item_tipo} adicionado ao carrinho!")
+        if st.form_submit_button("Finalizar Venda"):
+            if not servicos_venda and not produtos_venda:
+                st.warning("Adicione pelo menos um serviço ou produto à venda.")
+            else:
+                total = 0
+                for s in servicos_venda.values():
+                    total += s["quantidade"] * s["preco"]
+                for p in produtos_venda.values():
+                    total += p["quantidade"] * p["preco"]
 
-    if st.session_state.carrinho:
-        st.markdown("### 🧾 Carrinho")
-        total = 0
-        indices_remover = []
-        for i, item in enumerate(st.session_state.carrinho):
-            subtotal = item["qtd"] * item["preco"]
-            total += subtotal
-            col1, col2 = st.columns([8, 1])
-            with col1:
-                st.write(f"{item['nome']} ({item['tipo']}) — {item['qtd']} x R$ {item['preco']:.2f} = R$ {subtotal:.2f}")
-            with col2:
-                if st.button("Remover", key=f"remover_{i}"):
-                    indices_remover.append(i)
-
-        # Remover itens fora do loop para evitar conflito
-        for i in sorted(indices_remover, reverse=True):
-            st.session_state.carrinho.pop(i)
-        if indices_remover:
-            st.experimental_rerun()
-
-        st.markdown(f"### 💰 Total: R$ {total:.2f}")
-        forma_pg = st.radio("Forma de Pagamento", ["Pix", "Dinheiro", "Crédito", "Débito"], key="forma_pagamento")
-
-        if st.button("Finalizar Venda", key="finalizar_venda"):
-            cursor.execute(
-                "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
-                (cliente_venda[0], str(datetime.now()), forma_pg, total)
-            )
-            venda_id = cursor.lastrowid
-            for item in st.session_state.carrinho:
                 cursor.execute(
-                    "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
-                    (venda_id, item["tipo"], item["nome"], item["qtd"], item["preco"])
+                    "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
+                    (cliente_sel[0], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), forma_pagamento, total)
                 )
-            conn.commit()
-            st.session_state.carrinho.clear()
-            st.success("Venda finalizada com sucesso!")
+                venda_id = cursor.lastrowid
+
+                for nome_s, dados in servicos_venda.items():
+                    cursor.execute(
+                        "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                        (venda_id, "servico", nome_s, dados["quantidade"], dados["preco"])
+                    )
+                for nome_p, dados in produtos_venda.items():
+                    cursor.execute(
+                        "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                        (venda_id, "produto", nome_p, dados["quantidade"], dados["preco"])
+                    )
+
+                # Atualizar estoque
+                for nome_p, dados in produtos_venda.items():
+                    cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE nome = ?", (dados["quantidade"], nome_p))
+
+                conn.commit()
+                st.success(f"Venda finalizada! Total: R$ {total:.2f}")
 
 elif menu == "Despesas":
     st.title("📉 Controle de Despesas")
     with st.form("form_despesas"):
-        descricao = st.text_input("Descrição", key="desc_despesa")
+        descricao = st.text_input("Descrição da despesa", key="descricao_despesa")
         valor = st.number_input("Valor (R$)", step=0.5, min_value=0.0, key="valor_despesa")
         data_despesa = st.date_input("Data", value=date.today(), key="data_despesa")
         if st.form_submit_button("Registrar Despesa"):
@@ -384,51 +400,59 @@ elif menu == "Despesas":
                 (descricao, valor, str(data_despesa))
             )
             conn.commit()
-            st.success("Despesa registrada!")
+            st.success("Despesa registrada com sucesso!")
 
-    st.markdown("### 📋 Lista de Despesas")
+    st.markdown("### Despesas Registradas")
     despesas = cursor.execute("SELECT descricao, valor, data FROM despesas ORDER BY data DESC").fetchall()
     for d in despesas:
-        st.write(f"{d[0]} — R$ {d[1]:.2f} em {d[2]}")
+        st.write(f"{d[2]} - {d[0]}: R$ {d[1]:.2f}")
 
 elif menu == "Relatórios":
     st.title("📊 Relatórios")
 
-    data_inicio = st.date_input("Data Inicial", value=date.today().replace(day=1), key="rel_inicio")
-    data_fim = st.date_input("Data Final", value=date.today(), key="rel_fim")
-    if data_inicio > data_fim:
-        st.error("Data inicial não pode ser maior que a final.")
-        st.stop()
+    tipo_relatorio = st.selectbox("Tipo de relatório", ["Vendas", "Clientes", "Despesas"])
 
-    # Vendas no período
-    vendas = pd.read_sql_query(
-        "SELECT * FROM vendas WHERE date(data) BETWEEN ? AND ?",
-        conn, params=(str(data_inicio), str(data_fim))
-    )
-    st.markdown("### Vendas")
-    st.dataframe(vendas)
+    data_inicio = st.date_input("Data início", value=date.today().replace(day=1))
+    data_fim = st.date_input("Data fim", value=date.today())
 
-    # Gráfico de vendas
-    if not vendas.empty:
-        vendas['data'] = pd.to_datetime(vendas['data']).dt.date
-        vendas_agrupadas = vendas.groupby('data').sum()['total'].reset_index()
-        fig = px.bar(vendas_agrupadas, x='data', y='total', title='Vendas por Dia')
-        st.plotly_chart(fig)
-    else:
-        st.info("Nenhuma venda no período selecionado.")
+    if st.button("Gerar relatório"):
+        if tipo_relatorio == "Vendas":
+            query = """
+            SELECT v.data, c.nome, v.forma_pagamento, v.total
+            FROM vendas v
+            JOIN clientes c ON v.cliente_id = c.id
+            WHERE date(v.data) BETWEEN ? AND ?
+            ORDER BY v.data
+            """
+            df = pd.read_sql_query(query, conn, params=(str(data_inicio), str(data_fim)))
+            st.dataframe(df)
+
+            if not df.empty:
+                fig = px.bar(df, x="data", y="total", title="Vendas no período")
+                st.plotly_chart(fig)
+
+        elif tipo_relatorio == "Clientes":
+            query = """
+            SELECT nome, telefone, data_nascimento FROM clientes
+            """
+            df = pd.read_sql_query(query, conn)
+            st.dataframe(df)
+
+        elif tipo_relatorio == "Despesas":
+            query = """
+            SELECT data, descricao, valor FROM despesas
+            WHERE date(data) BETWEEN ? AND ?
+            ORDER BY data
+            """
+            df = pd.read_sql_query(query, conn, params=(str(data_inicio), str(data_fim)))
+            st.dataframe(df)
+
+            if not df.empty:
+                fig = px.bar(df, x="data", y="valor", title="Despesas no período")
+                st.plotly_chart(fig)
 
 elif menu == "Sair":
     st.session_state.logado = False
     st.experimental_rerun()
 
-# --- Ajustes gerais ---
-st.markdown("""
-<style>
-    /* Ajustar largura da página para responsivo */
-    .main .block-container {
-        max-width: 1100px;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
