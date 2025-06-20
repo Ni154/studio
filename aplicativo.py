@@ -124,7 +124,18 @@ CREATE TABLE IF NOT EXISTS empresa (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS empresa (
+    id INTEGER PRIMARY KEY,
+    nome TEXT,
+    cnpj TEXT,
+    endereco TEXT,
+    telefone TEXT,
+    email TEXT
+)
+""")
 conn.commit()
+
 
 # Estilo e layout (igual no seu código original)...
 
