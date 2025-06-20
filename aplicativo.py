@@ -827,7 +827,7 @@ conn.commit()
 # ... (aqui vem o restante do seu código anterior)
 
 if menu == "Cadastro Empresa":
-    st.title("\U0001F3E2 Cadastro da Empresa")
+    st.title("🏢 Cadastro da Empresa")
     empresa = cursor.execute("SELECT * FROM empresa WHERE id = 1").fetchone()
     with st.form("form_empresa"):
         col1, col2 = st.columns(2)
@@ -849,6 +849,7 @@ if menu == "Cadastro Empresa":
                 """, (nome, cnpj, telefone, endereco, email))
             conn.commit()
             st.success("✅ Dados da empresa salvos com sucesso!")
+
 
 elif menu == "Vendas":
     st.title("\U0001F4B3 Vendas")
