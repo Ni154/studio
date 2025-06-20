@@ -1,5 +1,3 @@
-import os
-import shutil
 import streamlit as st
 import sqlite3
 from datetime import datetime, date
@@ -8,16 +6,15 @@ from PIL import Image
 import io
 import pandas as pd
 import plotly.express as px
+import shutil
+import os
 
-# Configuração da página
 st.set_page_config(page_title="Studio de Depilação", layout="wide", initial_sidebar_state="expanded")
 
-# Caminhos para banco e backup
 DB_PATH = "studio.db"
 BACKUP_DIR = "backups"
 BACKUP_LOG = "backup_log.txt"
 
-# Função para backup automático a cada 15 dias
 def realizar_backup():
     if not os.path.exists(BACKUP_DIR):
         os.makedirs(BACKUP_DIR)
@@ -43,16 +40,15 @@ def checar_backup():
     if (hoje - ultima_data).days >= 15:
         realizar_backup()
 
-# Inicializa banco
+# Banco e tabelas
 if not os.path.exists(DB_PATH):
-    # Cria banco vazio se não existir
     open(DB_PATH, 'a').close()
 
 checar_backup()
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# Criação de tabelas principais (simplificado, pode adicionar mais campos e tabelas conforme necessário)
+# Criação das tabelas, se não existirem
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY, usuario TEXT UNIQUE, senha TEXT
@@ -65,23 +61,63 @@ CREATE TABLE IF NOT EXISTS clientes (
     cantor_favorito TEXT, bebida_favorita TEXT, assinatura BLOB
 )""")
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS ficha_avaliacao (
+    id INTEGER PRIMARY KEY, cliente_id INTEGER,
+    epilacao_anterio TEXT, alergia TEXT, qual_alergia TEXT, problema_pele TEXT,
+    tratamento_dermatologico TEXT, tipo_pele TEXT, hidrata_pele TEXT, gravida TEXT,
+    medicamento TEXT, qual_medicamento TEXT, dispositivo TEXT, diabete TEXT,
+    pelos_encravados TEXT, cirurgia_recente TEXT, foliculite TEXT, qual_foliculite TEXT,
+    outro_problema TEXT, qual_outro TEXT, autorizacao_imagem TEXT
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS agendamentos (
+    id INTEGER PRIMARY KEY, cliente_id INTEGER, servico TEXT, data TEXT, hora TEXT, status TEXT
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS servicos (
+    id INTEGER PRIMARY KEY, nome TEXT, descricao TEXT, duracao INTEGER, valor REAL
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS produtos (
+    id INTEGER PRIMARY KEY, nome TEXT, estoque INTEGER, valor REAL
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS vendas (
+    id INTEGER PRIMARY KEY, cliente_id INTEGER, data TEXT, forma_pagamento TEXT, total REAL
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS vendas_itens (
+    id INTEGER PRIMARY KEY, venda_id INTEGER, tipo TEXT, nome TEXT, quantidade INTEGER, preco REAL
+)""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS despesas (
+    id INTEGER PRIMARY KEY, descricao TEXT, valor REAL, data TEXT
+)""")
+
 conn.commit()
 
-# Estilo geral (tema clínico)
+# --- Estilos tema clínico e botões quadrados fixos ---
 st.markdown("""
 <style>
 body, .block-container {
-    background-color: #f8fafc;
+    background-color: #f9fafb;
     color: #004466;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .menu-btn {
-    background-color: #e6f0f8;
+    background-color: #e3f0fa;
     border: 2px solid #3399ff;
     border-radius: 4px;
     color: #004466;
     font-weight: 600;
-    padding: 10px 20px;
+    padding: 10px 15px;
     margin-bottom: 10px;
     width: 100%;
     cursor: pointer;
@@ -96,54 +132,59 @@ body, .block-container {
     background-color: #3399ff;
     color: white;
 }
-.login-container {
+.login-box {
     max-width: 400px;
-    margin: 50px auto;
+    margin: 60px auto;
     padding: 30px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0,102,153,0.3);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,102,153,0.25);
     text-align: center;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.login-box img {
+    border-radius: 10px;
+    margin-bottom: 15px;
+    max-width: 100%;
+}
+.login-box h2 {
+    margin-bottom: 25px;
     color: #004466;
 }
-.login-container h2 {
-    margin-bottom: 25px;
-}
-.login-image {
+.sidebar-image {
+    border-radius: 12px;
     margin-bottom: 15px;
-    border-radius: 10px;
+    max-width: 100%;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Função menu lateral com botões
+# Função menu lateral com botões fixos e função correta
 def menu_lateral_botao(opcoes, key):
     selected = st.session_state.get(key, opcoes[0])
     for opcao in opcoes:
         classe = "menu-btn"
         if opcao == selected:
             classe += " menu-btn-selected"
-        if st.button(opcao, key=f"menu_{opcao}"):
+        # Botão retorna True se clicado
+        if st.button(opcao, key=f"menu_{opcao}", help=opcao):
             st.session_state[key] = opcao
             st.experimental_rerun()
     return st.session_state.get(key)
 
-# Login
+# --- Login ---
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
 if not st.session_state.logado:
-    st.markdown(
-        """
-        <div class="login-container">
-            <img class="login-image" src="https://images.unsplash.com/photo-1576765607924-99f97cae02a9?auto=format&fit=crop&w=300&q=80" alt="Estética" width="300" />
-            <h2>Login - Studio de Depilação</h2>
-        </div>
-        """, unsafe_allow_html=True)
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
+    st.markdown(f"""
+    <div class="login-box">
+        <img src="https://images.unsplash.com/photo-1588776814546-cded238c6846?auto=format&fit=crop&w=600&q=80" alt="Logo Studio" />
+        <h2>Login - Studio de Depilação</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    usuario = st.text_input("Usuário", key="login_usuario")
+    senha = st.text_input("Senha", type="password", key="login_senha")
+    if st.button("Entrar", key="btn_entrar"):
         cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario, senha))
         resultado = cursor.fetchone()
         if resultado:
@@ -153,7 +194,7 @@ if not st.session_state.logado:
             st.error("Usuário ou senha inválidos.")
     st.stop()
 
-# Menu lateral
+# --- Menu lateral fixo ---
 menu_opcoes = [
     "Início", "Clientes", "Agendamentos", "Serviços",
     "Produtos", "Vendas", "Despesas", "Relatórios",
@@ -161,15 +202,15 @@ menu_opcoes = [
 ]
 
 with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1588776814546-cded238c6846?auto=format&fit=crop&w=400&q=80", width=200)
+    st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80", use_column_width=True)
     st.markdown("### Studio de Depilação")
     st.markdown("---")
     menu = menu_lateral_botao(menu_opcoes, "menu_selecionado")
 
-# Páginas
+# --- Conteúdo das páginas ---
 if menu == "Início":
     st.title("🌿 Bem-vinda ao Studio de Depilação")
-    st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80")
+    st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80", use_column_width=True)
     st.markdown("Use o menu ao lado para navegar no sistema.")
 
 elif menu == "Clientes":
@@ -177,19 +218,20 @@ elif menu == "Clientes":
     with st.form("form_cadastro_cliente"):
         col1, col2 = st.columns(2)
         with col1:
-            nome = st.text_input("Nome completo")
-            telefone = st.text_input("Telefone")
-            data_nascimento = st.date_input("Data de nascimento", value=date(1990,1,1), max_value=date.today())
-            instagram = st.text_input("Instagram")
+            nome = st.text_input("Nome completo", key="nome_cliente")
+            telefone = st.text_input("Telefone", key="telefone_cliente")
+            # Remove limite até 2015 da data nascimento:
+            data_nascimento = st.date_input("Data de nascimento", value=date(1990,1,1), max_value=date.today(), key="nascimento_cliente")
+            instagram = st.text_input("Instagram", key="instagram_cliente")
         with col2:
-            cantor = st.text_input("Cantor favorito")
-            bebida = st.text_input("Bebida favorita")
+            cantor = st.text_input("Cantor favorito", key="cantor_cliente")
+            bebida = st.text_input("Bebida favorita", key="bebida_cliente")
 
         st.markdown("### ✍️ Assinatura Digital")
         canvas_result = st_canvas(
             fill_color="rgba(255,255,255,0)", stroke_width=2,
             stroke_color="#000", background_color="#fff", height=150,
-            drawing_mode="freedraw"
+            drawing_mode="freedraw", key="canvas_assinatura"
         )
         assinatura_bytes = None
         if canvas_result.image_data is not None:
@@ -198,7 +240,30 @@ elif menu == "Clientes":
             Image.fromarray((img[:, :, :3]).astype('uint8')).save(buffered, format="PNG")
             assinatura_bytes = buffered.getvalue()
 
-        # Exemplo simplificado do botão salvar cadastro
+        st.markdown("### 📋 Anamnese")
+        col1, col2 = st.columns(2)
+        with col1:
+            epilacao = st.radio("Já fez epilação na cera?", ["SIM", "NÃO"], key="epilacao")
+            alergia = st.radio("Possui alergia?", ["SIM", "NÃO"], key="alergia")
+            qual_alergia = st.text_input("Qual?", disabled=(alergia == "NÃO"), key="qual_alergia")
+            problema_pele = st.radio("Problemas de pele?", ["SIM", "NÃO"], key="problema_pele")
+            tratamento = st.radio("Em tratamento dermatológico?", ["SIM", "NÃO"], key="tratamento")
+            tipo_pele = st.selectbox("Tipo de pele", ["SECA", "OLEOSA", "NORMAL"], key="tipo_pele")
+            hidrata = st.radio("Hidrata a pele?", ["SIM", "NÃO"], key="hidrata")
+            gravida = st.radio("Está grávida?", ["SIM", "NÃO"], key="gravida")
+        with col2:
+            medicamento = st.radio("Usa medicamento?", ["SIM", "NÃO"], key="medicamento")
+            qual_medicamento = st.text_input("Qual?", disabled=(medicamento == "NÃO"), key="qual_medicamento")
+            dispositivo = st.selectbox("Dispositivo?", ["DIU", "Marca-passo", "Nenhum"], key="dispositivo")
+            diabete = st.radio("Diabetes?", ["SIM", "NÃO"], key="diabete")
+            encravado = st.radio("Pelos encravados?", ["SIM", "NÃO"], key="encravado")
+            cirurgia = st.radio("Cirurgia recente?", ["SIM", "NÃO"], key="cirurgia")
+            foliculite = st.radio("Foliculite?", ["SIM", "NÃO"], key="foliculite")
+            qual_foliculite = st.text_input("Qual?", disabled=(foliculite == "NÃO"), key="qual_foliculite")
+            outro = st.radio("Outro problema?", ["SIM", "NÃO"], key="outro")
+            qual_outro = st.text_input("Qual?", disabled=(outro == "NÃO"), key="qual_outro")
+            imagem = st.radio("Autoriza uso de imagem?", ["SIM", "NÃO"], key="imagem")
+
         if st.form_submit_button("Salvar Cadastro"):
             if not nome.strip():
                 st.error("O nome do cliente é obrigatório.")
@@ -208,36 +273,215 @@ elif menu == "Clientes":
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
                     (nome, telefone, str(data_nascimento), instagram, cantor, bebida, assinatura_bytes)
                 )
+                cliente_id = cursor.lastrowid
+
+                cursor.execute(
+                    """INSERT INTO ficha_avaliacao (cliente_id, epilacao_anterio, alergia, qual_alergia, problema_pele,
+                    tratamento_dermatologico, tipo_pele, hidrata_pele, gravida, medicamento, qual_medicamento, dispositivo,
+                    diabete, pelos_encravados, cirurgia_recente, foliculite, qual_foliculite, outro_problema, qual_outro, autorizacao_imagem)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (cliente_id, epilacao, alergia, qual_alergia, problema_pele, tratamento, tipo_pele, hidrata,
+                     gravida, medicamento, qual_medicamento, dispositivo, diabete, encravado, cirurgia,
+                     foliculite, qual_foliculite, outro, qual_outro, imagem)
+                )
                 conn.commit()
                 st.success("Cadastro salvo com sucesso!")
 
 elif menu == "Agendamentos":
-    st.title("📆 Página de Agendamentos")
-    st.info("Aqui você pode implementar a funcionalidade de agendamentos.")
+    st.title("📆 Agendamentos")
+    with st.form("form_agendamento"):
+        clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
+        servicos = cursor.execute("SELECT nome FROM servicos").fetchall()
+
+        if not clientes:
+            st.warning("Nenhum cliente cadastrado.")
+            st.stop()
+        if not servicos:
+            st.warning("Nenhum serviço cadastrado.")
+            st.stop()
+
+        cliente = st.selectbox("Cliente", clientes, format_func=lambda x: f"{x[1]}", key="agendamento_cliente")
+        servico = st.selectbox("Serviço", [s[0] for s in servicos], key="agendamento_servico")
+        data_agenda = st.date_input("Data", min_value=date.today(), key="agendamento_data")
+        hora = st.time_input("Hora", key="agendamento_hora")
+
+        if st.form_submit_button("Agendar"):
+            cursor.execute(
+                "INSERT INTO agendamentos (cliente_id, servico, data, hora, status) VALUES (?, ?, ?, ?, ?)",
+                (cliente[0], servico, str(data_agenda), str(hora), "Ativo")
+            )
+            conn.commit()
+            st.success("Agendamento registrado.")
+
+    st.markdown("### 📋 Agendamentos Ativos")
+    agendamentos = cursor.execute("""
+        SELECT a.id, c.nome, a.servico, a.data, a.hora
+        FROM agendamentos a
+        JOIN clientes c ON c.id = a.cliente_id
+        WHERE a.status = 'Ativo'
+        ORDER BY a.data, a.hora
+    """).fetchall()
+
+    for ag in agendamentos:
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.write(f"👤 **{ag[1]}** — {ag[2]} em {ag[3]} às {ag[4]}")
+        with col2:
+            if st.button("❌ Cancelar", key=f"cancelar_{ag[0]}"):
+                cursor.execute("UPDATE agendamentos SET status = 'Cancelado' WHERE id = ?", (ag[0],))
+                conn.commit()
+                st.experimental_rerun()
 
 elif menu == "Serviços":
-    st.title("📝 Página de Serviços")
-    st.info("Aqui você pode implementar a funcionalidade de serviços.")
+    st.title("📝 Serviços")
+    with st.form("form_servicos"):
+        nome = st.text_input("Nome do serviço")
+        descricao = st.text_area("Descrição")
+        duracao = st.number_input("Duração (minutos)", min_value=1, step=1)
+        valor = st.number_input("Valor R$", min_value=0.0, step=0.1, format="%.2f")
+        if st.form_submit_button("Cadastrar Serviço"):
+            cursor.execute(
+                "INSERT INTO servicos (nome, descricao, duracao, valor) VALUES (?, ?, ?, ?)",
+                (nome, descricao, duracao, valor)
+            )
+            conn.commit()
+            st.success("Serviço cadastrado.")
+
+    servicos = cursor.execute("SELECT id, nome, descricao, duracao, valor FROM servicos").fetchall()
+    for s in servicos:
+        st.write(f"**{s[1]}** - {s[2]} | {s[3]} min | R$ {s[4]:.2f}")
 
 elif menu == "Produtos":
-    st.title("📦 Página de Produtos")
-    st.info("Aqui você pode implementar a funcionalidade de produtos.")
+    st.title("📦 Produtos")
+    with st.form("form_produtos"):
+        nome = st.text_input("Nome do produto")
+        estoque = st.number_input("Estoque", min_value=0, step=1)
+        valor = st.number_input("Valor R$", min_value=0.0, step=0.1, format="%.2f")
+        if st.form_submit_button("Cadastrar Produto"):
+            cursor.execute(
+                "INSERT INTO produtos (nome, estoque, valor) VALUES (?, ?, ?)",
+                (nome, estoque, valor)
+            )
+            conn.commit()
+            st.success("Produto cadastrado.")
+
+    produtos = cursor.execute("SELECT id, nome, estoque, valor FROM produtos").fetchall()
+    for p in produtos:
+        st.write(f"**{p[1]}** - Estoque: {p[2]} | R$ {p[3]:.2f}")
 
 elif menu == "Vendas":
-    st.title("💳 Página de Vendas")
-    st.info("Aqui você pode implementar a funcionalidade de vendas.")
+    st.title("💳 Vendas")
+    clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
+    servicos = cursor.execute("SELECT nome, valor FROM servicos").fetchall()
+    produtos = cursor.execute("SELECT nome, valor, estoque FROM produtos").fetchall()
+
+    if not clientes or (not servicos and not produtos):
+        st.warning("Cadastre clientes, serviços e produtos para realizar vendas.")
+        st.stop()
+
+    with st.form("form_venda"):
+        cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1])
+        forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
+        # Selecionar produtos
+        st.markdown("### Produtos")
+        produto_selecionado = st.selectbox("Produto", [p[0] for p in produtos])
+        quantidade_prod = st.number_input("Quantidade", min_value=1, step=1, key="qtd_produto")
+        # Selecionar serviços
+        st.markdown("### Serviços")
+        servico_selecionado = st.selectbox("Serviço", [s[0] for s in servicos])
+        quantidade_serv = st.number_input("Quantidade", min_value=1, step=1, key="qtd_servico")
+
+        if st.form_submit_button("Finalizar Venda"):
+            # Verificar estoque produto
+            idx_prod = [p[0] for p in produtos].index(produto_selecionado)
+            estoque_atual = produtos[idx_prod][2]
+            valor_prod = produtos[idx_prod][1]
+            if estoque_atual < quantidade_prod:
+                st.error("Estoque insuficiente para o produto selecionado.")
+            else:
+                total = valor_prod*quantidade_prod
+                # Buscar valor do serviço
+                idx_serv = [s[0] for s in servicos].index(servico_selecionado)
+                valor_serv = servicos[idx_serv][1]
+                total += valor_serv*quantidade_serv
+
+                # Inserir venda
+                cursor.execute(
+                    "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
+                    (cliente[0], str(date.today()), forma_pagamento, total)
+                )
+                venda_id = cursor.lastrowid
+
+                # Inserir itens da venda
+                cursor.execute(
+                    "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                    (venda_id, "Produto", produto_selecionado, quantidade_prod, valor_prod)
+                )
+                cursor.execute(
+                    "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                    (venda_id, "Serviço", servico_selecionado, quantidade_serv, valor_serv)
+                )
+
+                # Atualizar estoque
+                novo_estoque = estoque_atual - quantidade_prod
+                cursor.execute("UPDATE produtos SET estoque = ? WHERE nome = ?", (novo_estoque, produto_selecionado))
+
+                conn.commit()
+                st.success(f"Venda finalizada. Total: R$ {total:.2f}")
 
 elif menu == "Despesas":
-    st.title("📉 Página de Despesas")
-    st.info("Aqui você pode implementar a funcionalidade de despesas.")
+    st.title("📉 Controle de Despesas")
+    with st.form("form_despesas"):
+        descricao = st.text_input("Descrição")
+        valor = st.number_input("Valor R$", min_value=0.0, step=0.1, format="%.2f")
+        data_despesa = st.date_input("Data", max_value=date.today())
+        if st.form_submit_button("Registrar Despesa"):
+            cursor.execute(
+                "INSERT INTO despesas (descricao, valor, data) VALUES (?, ?, ?)",
+                (descricao, valor, str(data_despesa))
+            )
+            conn.commit()
+            st.success("Despesa registrada.")
+
+    despesas = cursor.execute("SELECT descricao, valor, data FROM despesas ORDER BY data DESC").fetchall()
+    df_despesas = pd.DataFrame(despesas, columns=["Descrição", "Valor", "Data"])
+    st.dataframe(df_despesas)
 
 elif menu == "Relatórios":
-    st.title("📊 Página de Relatórios")
-    st.info("Aqui você pode implementar a funcionalidade de relatórios.")
+    st.title("📊 Relatórios")
+    tipo_rel = st.selectbox("Tipo de relatório", ["Vendas", "Despesas"])
+    data_ini = st.date_input("Data inicial", value=date(2023,1,1))
+    data_fim = st.date_input("Data final", value=date.today())
+    if data_ini > data_fim:
+        st.error("Data inicial não pode ser maior que a final.")
+        st.stop()
+
+    if tipo_rel == "Vendas":
+        query = """SELECT v.data, v.forma_pagamento, v.total, c.nome
+                   FROM vendas v
+                   LEFT JOIN clientes c ON v.cliente_id = c.id
+                   WHERE date(v.data) BETWEEN ? AND ?"""
+        df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
+        if df.empty:
+            st.warning("Nenhum dado encontrado.")
+        else:
+            st.dataframe(df)
+            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='total', title="Total de Vendas por Dia")
+            st.plotly_chart(fig)
+
+    else:
+        query = """SELECT descricao, valor, data FROM despesas WHERE date(data) BETWEEN ? AND ?"""
+        df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
+        if df.empty:
+            st.warning("Nenhum dado encontrado.")
+        else:
+            st.dataframe(df)
+            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='valor', title="Despesas por Dia")
+            st.plotly_chart(fig)
 
 elif menu == "Importação":
     st.title("📥 Importação de Dados")
-    st.warning("⚠️ Ao importar um arquivo de banco, o banco atual será substituído completamente. Faça backup antes!")
+    st.warning("⚠️ Importar um arquivo de backup substituirá o banco atual. Faça backup antes!")
     uploaded_file = st.file_uploader("Selecione o arquivo de backup (.db)", type=["db"])
     if uploaded_file is not None:
         if st.button("Importar backup"):
@@ -249,3 +493,14 @@ elif menu == "Importação":
 elif menu == "Sair":
     st.session_state.logado = False
     st.experimental_rerun()
+
+# Ajuste geral largura e padding para melhor visualização
+st.markdown("""
+<style>
+    .main .block-container {
+        max-width: 1100px;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+</style>
+""", unsafe_allow_html=True)
