@@ -812,6 +812,8 @@ elif menu == "Produtos":
         st.info("Nenhum produto cadastrado ainda.")
 # Criação da tabela empresa (uma única empresa operando o sistema)
 cursor.execute("""
+# Criação da tabela empresa - isso deve estar no início do arquivo
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS empresa (
     id INTEGER PRIMARY KEY,
     nome TEXT,
@@ -822,28 +824,39 @@ CREATE TABLE IF NOT EXISTS empresa (
 )
 """)
 conn.commit()
+
+# ... (aqui vem o restante do seu código anterior)
+
 elif menu == "Cadastro Empresa":
     st.title("🏢 Cadastro da Empresa")
 
     empresa = cursor.execute("SELECT * FROM empresa WHERE id = 1").fetchone()
+
     with st.form("form_empresa"):
-        nome = st.text_input("Nome da empresa", value=empresa[1] if empresa else "")
-        cnpj = st.text_input("CNPJ", value=empresa[2] if empresa else "")
-        endereco = st.text_input("Endereço", value=empresa[3] if empresa else "")
-        telefone = st.text_input("Telefone", value=empresa[4] if empresa else "")
-        email = st.text_input("E-mail", value=empresa[5] if empresa else "")
+        col1, col2 = st.columns(2)
+        with col1:
+            nome = st.text_input("Nome da empresa", value=empresa[1] if empresa else "")
+            cnpj = st.text_input("CNPJ", value=empresa[2] if empresa else "")
+            telefone = st.text_input("Telefone", value=empresa[3] if empresa else "")
+        with col2:
+            endereco = st.text_input("Endereço", value=empresa[4] if empresa else "")
+            email = st.text_input("E-mail", value=empresa[5] if empresa else "")
+
         if st.form_submit_button("Salvar dados"):
-            
             if empresa:
                 cursor.execute("""
-                    UPDATE empresa SET nome=?, cnpj=?, endereco=?, telefone=?, email=? WHERE id=1
-                """, (nome, cnpj, endereco, telefone, email))
+                    UPDATE empresa
+                    SET nome=?, cnpj=?, telefone=?, endereco=?, email=?
+                    WHERE id = 1
+                """, (nome, cnpj, telefone, endereco, email))
             else:
                 cursor.execute("""
-                    INSERT INTO empresa (id, nome, cnpj, endereco, telefone, email) VALUES (1, ?, ?, ?, ?, ?)
-                """, (nome, cnpj, endereco, telefone, email))
+                    INSERT INTO empresa (id, nome, cnpj, telefone, endereco, email)
+                    VALUES (1, ?, ?, ?, ?, ?)
+                """, (nome, cnpj, telefone, endereco, email))
             conn.commit()
-            st.success("✅ Dados da empresa salvos com sucesso.")
+            st.success("✅ Dados da empresa salvos com sucesso!")
+
 
 elif menu == "Vendas":
     st.title("💳 Vendas")
