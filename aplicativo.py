@@ -823,7 +823,7 @@ CREATE TABLE IF NOT EXISTS empresa (
 """)
 conn.commit()
 
-   elif menu == "Cadastro Empresa":
+   if menu == "Cadastro Empresa":
     st.title("🏢 Cadastro da Empresa")
 
     empresa = cursor.execute("SELECT * FROM empresa WHERE id = 1").fetchone()
