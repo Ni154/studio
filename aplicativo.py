@@ -824,7 +824,6 @@ CREATE TABLE IF NOT EXISTS empresa (
 )
 """)
 conn.commit()
-
 # ... (aqui vem o restante do seu código anterior)
 
 elif menu == "Cadastro Empresa":
@@ -1172,7 +1171,7 @@ elif menu == "Relatórios":
             st.plotly_chart(fig)
 
     else:  # Despesas
-        query = """
+               query = """
             SELECT descricao, valor, data
             FROM despesas
             WHERE date(data) BETWEEN ? AND ?
