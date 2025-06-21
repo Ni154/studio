@@ -139,7 +139,7 @@ if not st.session_state.logado:
             user = cursor.execute("SELECT * FROM usuarios WHERE usuario = ? AND senha = ?", (usuario, senha)).fetchone()
             if user:
                 st.session_state.logado = True
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Usuário ou senha incorretos.")
     st.stop()
