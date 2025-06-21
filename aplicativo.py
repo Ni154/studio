@@ -813,7 +813,19 @@ if menu == "Cadastro Empresa":
         with col2:
             endereco = st.text_input("Endereço", value=empresa[4] if empresa else "")
             email = st.text_input("E-mail", value=empresa[5] if empresa else "")
-        if st.form_submit_button("Salvar dados"):
+if st.form_submit_button("Salvar dados"):
+    if empresa:
+        cursor.execute(
+            "UPDATE empresa SET nome=?, cnpj=?, telefone=?, endereco=?, email=? WHERE id = 1",
+            (nome, cnpj, telefone, endereco, email)
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO empresa (id, nome, cnpj, telefone, endereco, email) VALUES (1, ?, ?, ?, ?, ?)",
+            (nome, cnpj, telefone, endereco, email)
+        )
+    conn.commit()
+    st.success("✅ Dados da empresa salvos com sucesso!")
     if empresa:
         cursor.execute(
             "UPDATE empresa SET nome=?, cnpj=?, telefone=?, endereco=?, email=? WHERE id = 1",
