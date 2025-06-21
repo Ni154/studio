@@ -139,10 +139,18 @@ if not st.session_state.logado:
             user = cursor.execute("SELECT * FROM usuarios WHERE usuario = ? AND senha = ?", (usuario, senha)).fetchone()
             if user:
                 st.session_state.logado = True
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("Usuário ou senha incorretos.")
     st.stop()
+# Mostrar menu lateral só se estiver logado
+if st.session_state.logado:
+    with st.sidebar:
+        st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80", use_column_width=True)
+        st.markdown("### Priscila Santos Epilação")
+        st.markdown("---")
+        menu = menu_lateral_botao(menu_opcoes, "menu_selecionado")
+
 
 
 
