@@ -141,11 +141,7 @@ def menu_lateral_botao(opcoes, key):
             st.experimental_rerun()
     return st.session_state.get(key)
 
-menu_opcoes = [
-    "Início","Dashboard", "Clientes", "Agendamentos", "Serviços",
-    "Produtos", "Vendas", "Despesas", "Relatórios",
-    "Cadastro Empresa", "Importação", "Sair"
-]
+menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviços', 'Produtos', 'Vendas', 'Despesas', 'Relatórios', 'Importação', 'Sair']
 
 # Login igual ao seu código original (sem alterações) ...
 
@@ -603,11 +599,7 @@ elif menu == "Relatórios":
 
             st.download_button("📄 Baixar Relatório de Despesas PDF", data=pdf_bytes, file_name="relatorio_despesas.pdf", mime="application/pdf")
 # Atualize a lista de opções do menu lateral:
-menu_opcoes = [
-    "Início", "Clientes", "Agendamentos", "Serviços",
-    "Produtos", "Vendas", "Despesas", "Relatórios",
-    "Cadastro Empresa", "Dashboard", "Importação", "Sair"
-]
+menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviços', 'Produtos', 'Vendas', 'Despesas', 'Relatórios', 'Importação', 'Sair']
 
 # Função menu lateral com botões fixos (mantida igual)
 def menu_lateral_botao(opcoes, key):
