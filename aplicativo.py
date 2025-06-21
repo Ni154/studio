@@ -126,6 +126,25 @@ CREATE TABLE IF NOT EXISTS empresa (
 """)
 conn.commit()
 
+# Login
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+
+if not st.session_state.logado:
+    with st.form("login"):
+        st.subheader("🔐 Login")
+        usuario = st.text_input("Usuário")
+        senha = st.text_input("Senha", type="password")
+        if st.form_submit_button("Entrar"):
+            user = cursor.execute("SELECT * FROM usuarios WHERE usuario = ? AND senha = ?", (usuario, senha)).fetchone()
+            if user:
+                st.session_state.logado = True
+                st.experimental_rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
+    st.stop()
+
+
 
 # Estilo e layout (igual no seu código original)...
 
@@ -145,11 +164,6 @@ menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviço
 
 # Login igual ao seu código original (sem alterações) ...
 
-with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80", use_column_width=True)
-    st.markdown("### Priscila Santos Epilação")
-    st.markdown("---")
-    menu = menu_lateral_botao(menu_opcoes, "menu_selecionado")
 
 # Continua no próximo envio com as páginas específicas integradas (Clientes, Produtos com edição, Vendas com comprovante, Cadastro da empresa, Relatórios melhorados etc.)
 if menu == "Clientes":
@@ -614,11 +628,6 @@ def menu_lateral_botao(opcoes, key):
     return st.session_state.get(key)
 
 # No sidebar, o menu lateral fixo com os botões:
-with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80", use_column_width=True)
-    st.markdown("### Priscila Santos Epilação")
-    st.markdown("---")
-    menu = menu_lateral_botao(menu_opcoes, "menu_selecionado")
 
 # Implementação do menu "Dashboard"
 if menu == "Dashboard":
