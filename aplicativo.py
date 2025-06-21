@@ -143,6 +143,21 @@ if not st.session_state.logado:
             else:
                 st.error("Usuário ou senha incorretos.")
     st.stop()
+# Função menu lateral com botões fixos
+def menu_lateral_botao(opcoes, key):
+    selected = st.session_state.get(key, opcoes[0])
+    for i, opcao in enumerate(opcoes):  # Use enumerate para garantir keys únicas
+        classe = "menu-btn"
+        if opcao == selected:
+            classe += " menu-btn-selected"
+        if st.button(opcao, key=f"menu_{i}_{opcao}"):
+            st.session_state[key] = opcao
+            st.experimental_rerun()
+    return st.session_state.get(key)
+
+# Lista de opções do menu
+menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviços', 'Produtos', 'Vendas', 'Despesas', 'Relatórios', 'Importação', 'Sair']
+
 # Mostrar menu lateral só se estiver logado
 if st.session_state.logado:
     with st.sidebar:
@@ -150,25 +165,6 @@ if st.session_state.logado:
         st.markdown("### Priscila Santos Epilação")
         st.markdown("---")
         menu = menu_lateral_botao(menu_opcoes, "menu_selecionado")
-
-
-
-
-# Estilo e layout (igual no seu código original)...
-
-# Função menu lateral com botões fixos
-def menu_lateral_botao(opcoes, key):
-    selected = st.session_state.get(key, opcoes[0])
-    for opcao in opcoes:
-        classe = "menu-btn"
-        if opcao == selected:
-            classe += " menu-btn-selected"
-        if st.button(opcao, key=f"menu_{opcao}"):
-            st.session_state[key] = opcao
-            st.experimental_rerun()
-    return st.session_state.get(key)
-
-menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviços', 'Produtos', 'Vendas', 'Despesas', 'Relatórios', 'Importação', 'Sair']
 
 # Login igual ao seu código original (sem alterações) ...
 
