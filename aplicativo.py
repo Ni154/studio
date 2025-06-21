@@ -1,7 +1,3 @@
-import streamlit as st
-import sqlite3
-from datetime import datetime, date
-from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import io
 import pandas as pd
@@ -19,7 +15,7 @@ DB_PATH = "studio.db"
 BACKUP_DIR = "backups"
 BACKUP_LOG = "backup_log.txt"
 
-# Funções de backup (igual no seu código original)...
+# Funções de backup
 def realizar_backup():
     if not os.path.exists(BACKUP_DIR):
         os.makedirs(BACKUP_DIR)
@@ -45,6 +41,7 @@ def checar_backup():
     if (hoje - ultima_data).days >= 15:
         realizar_backup()
 
+# Preparação do banco de dados
 if not os.path.exists(DB_PATH):
     open(DB_PATH, 'a').close()
 
