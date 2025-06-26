@@ -136,7 +136,7 @@ def tela_login():
 
 # --- Menu lateral fixo ---
 def menu_lateral():
-    st.sidebar.image("logo.png", width=150, use_column_width=False)
+    # st.sidebar.image("logo.png", width=150, use_column_width=False)
     st.sidebar.markdown("## Menu")
     # Usar botões fixos
     menu = None
