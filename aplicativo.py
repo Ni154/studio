@@ -6,12 +6,11 @@ import plotly.express as px
 import shutil
 import os
 import tempfile
-import sqlite3  # Também importante importar para conectar ao banco
+import sqlite3
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from datetime import datetime, date
-
 
 st.set_page_config(page_title="Studio de Depilação", layout="wide", initial_sidebar_state="expanded")
 
@@ -19,7 +18,7 @@ DB_PATH = "studio.db"
 BACKUP_DIR = "backups"
 BACKUP_LOG = "backup_log.txt"
 
-# Funções de backup
+# Função de backup automático
 def realizar_backup():
     if not os.path.exists(BACKUP_DIR):
         os.makedirs(BACKUP_DIR)
@@ -30,6 +29,7 @@ def realizar_backup():
         f.write(datetime.now().strftime("%Y-%m-%d"))
     st.info(f"Backup automático realizado: {backup_path}")
 
+# Verifica se é necessário realizar novo backup
 def checar_backup():
     if not os.path.exists(BACKUP_LOG):
         realizar_backup()
@@ -50,10 +50,11 @@ if not os.path.exists(DB_PATH):
     open(DB_PATH, 'a').close()
 
 checar_backup()
+
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
-# Criação das tabelas (incluindo empresa e preco_custo no produtos)
+# Criação da tabela de usuários
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY, usuario TEXT UNIQUE, senha TEXT
