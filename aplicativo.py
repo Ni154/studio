@@ -62,6 +62,16 @@ CREATE TABLE IF NOT EXISTS clientes (
     assinatura BLOB
 )
 """)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS produtos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT,
+    quantidade INTEGER,
+    preco_custo REAL,
+    preco_venda REAL
+)
+""")
+
 conn.commit()
 
 # CRIA USUÁRIO PADRÃO
