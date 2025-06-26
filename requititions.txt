@@ -1,7 +1,5 @@
-fpdf
 streamlit
 streamlit-drawable-canvas
 matplotlib
 pandas
 pillow
-
