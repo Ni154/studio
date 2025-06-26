@@ -338,51 +338,5 @@ else:
             st.pyplot(fig)
         else:
             st.info("Nenhuma venda no período selecionado.")
-... (Parte 1 a 3 já presente acima) ...
 
-    elif menu == "Relatórios":
-        st.subheader("📄 Relatórios de Vendas")
-        data_ini = st.date_input("Data Inicial", value=date.today())
-        data_fim = st.date_input("Data Final", value=date.today())
-        vendas = cursor.execute("""
-            SELECT v.id, c.nome, v.data, v.total, v.cancelada
-            FROM vendas v
-            JOIN clientes c ON v.cliente_id = c.id
-            WHERE date(v.data) BETWEEN ? AND ?
-            ORDER BY v.data DESC
-        """, (data_ini.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))).fetchall()
-
-        if vendas:
-            df = pd.DataFrame(vendas, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
-            st.dataframe(df)
-            total_realizadas = df[df["Cancelada"] == 0]["Total"].sum()
-            total_canceladas = df[df["Cancelada"] == 1]["Total"].sum()
-            st.metric("Vendas Realizadas", f"R$ {total_realizadas:.2f}")
-            st.metric("Vendas Canceladas", f"R$ {total_canceladas:.2f}")
-            fig, ax = plt.subplots()
-            ax.bar(["Realizadas", "Canceladas"], [total_realizadas, total_canceladas], color=["green", "red"])
-            st.pyplot(fig)
-        else:
-            st.info("Nenhuma venda no período selecionado.")
-
-    elif menu == "⚙️ Configurações":
-        st.subheader("⚙️ Configurações do Sistema")
-        tema = st.selectbox("Escolher tema do sistema", ["Claro", "Escuro", "Amarelo"])
-        if tema == "Claro":
-            st.write("Tema claro ativado")
-            st.markdown("""<style>body { background-color: #fdfdfd; color: #000; }</style>""", unsafe_allow_html=True)
-        elif tema == "Escuro":
-            st.write("Tema escuro ativado")
-            st.markdown("""<style>body { background-color: #222; color: #eee; }</style>""", unsafe_allow_html=True)
-        elif tema == "Amarelo":
-            st.write("Tema amarelo ativado")
-            st.markdown("""<style>body { background-color: #fff9db; color: #000; }</style>""", unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.markdown("### 📁 Importar logotipo da empresa")
-        logo = st.file_uploader("Escolha uma imagem para o logo", type=["png", "jpg", "jpeg"])
-        if logo is not None:
-            st.image(logo, width=200)
-            with open("logo_empresa.png", "wb") as f:
-                f.write(logo.read())
-            st.success("Logo importado com sucesso! Será exibido na tela de login e comprovantes.")
+    
