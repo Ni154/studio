@@ -245,7 +245,6 @@ else:
     elif menu == "Relatórios":
         st.subheader("📊 Relatórios")
         st.write("**Relatórios de vendas, produtos e serviços serão exibidos aqui.**")
-...
 
     elif menu == "Vendas":
         st.subheader("🛒 Vendas")
