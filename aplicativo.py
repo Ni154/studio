@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from datetime import datetime  # <--- Importação que faltava
+from datetime import datetime, date
 
 st.set_page_config(page_title="Studio de Depilação", layout="wide", initial_sidebar_state="expanded")
 
