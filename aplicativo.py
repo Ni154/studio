@@ -45,9 +45,13 @@ def checar_backup():
     if (hoje - ultima_data).days >= 15:
         realizar_backup()
 
-# Preparação do banco de dados
+# Garante que o diretório existe (caso DB_PATH contenha pasta)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True) if os.path.dirname(DB_PATH) else None
+
+# Cria o arquivo do banco se não existir
 if not os.path.exists(DB_PATH):
-    open(DB_PATH, 'a').close()
+    with open(DB_PATH, 'a'):
+        pass
 
 checar_backup()
 
@@ -61,6 +65,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 )
 """)
 cursor.execute("INSERT OR IGNORE INTO usuarios (id, usuario, senha) VALUES (1, 'admin', 'admin')")
+
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS clientes (
