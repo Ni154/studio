@@ -3,15 +3,14 @@ import sqlite3
 from datetime import datetime, date
 from streamlit_drawable_canvas import st_canvas
 import pandas as pd
-from fpdf import FPDF
-import io
 import matplotlib.pyplot as plt
+from PIL import Image
+import io
 
-# Conectar DB
+# Banco de dados
 conn = sqlite3.connect("studio_depilation.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# Criar tabelas básicas
 def criar_tabelas():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
@@ -73,7 +72,7 @@ def criar_tabelas():
     CREATE TABLE IF NOT EXISTS venda_itens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         venda_id INTEGER,
-        tipo TEXT,  -- 'produto' ou 'servico'
+        tipo TEXT,
         item_id INTEGER,
         quantidade INTEGER,
         preco REAL,
@@ -83,7 +82,6 @@ def criar_tabelas():
 
 criar_tabelas()
 
-# Criar admin padrão
 def criar_admin():
     user = cursor.execute("SELECT * FROM usuarios WHERE usuario='admin'").fetchone()
     if not user:
@@ -92,7 +90,6 @@ def criar_admin():
 
 criar_admin()
 
-# Autenticação
 def autenticar(usuario, senha):
     user = cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario, senha)).fetchone()
     return user is not None
@@ -115,7 +112,11 @@ def tela_login():
             st.error("Usuário ou senha inválidos")
 
 def menu_lateral():
-    st.image("logo.png", width=150)
+    # Tente trocar o caminho do logo para um arquivo existente, ou comente se não tiver logo
+    try:
+        st.image("logo.png", width=150)
+    except:
+        st.write("Logo aqui")
     menu = st.sidebar.radio("Menu", [
         "Iniciar",
         "Dashboard",
@@ -136,7 +137,6 @@ def pagina_iniciar():
     st.write("Vamos iniciar mais um dia produtivo!")
     hoje = date.today().strftime("%Y-%m-%d")
     st.write(f"Data de hoje: {hoje}")
-    # Listar clientes agendados hoje
     agendados = cursor.execute("""
         SELECT clientes.nome, servicos.nome FROM agendamentos 
         JOIN clientes ON agendamentos.cliente_id = clientes.id
@@ -152,16 +152,11 @@ def pagina_iniciar():
 
 def dashboard():
     st.title("Dashboard")
-    # Total clientes
     total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-    # Total vendas não canceladas
     total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=0").fetchone()[0]
-    # Total vendas canceladas
     total_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=1").fetchone()[0]
-    # Total estoque produtos
     total_estoque = cursor.execute("SELECT SUM(quantidade) FROM produtos").fetchone()[0]
-    total_estoque = total_estoque if total_estoque is not None else 0
-
+    total_estoque = total_estoque if total_estoque else 0
     col1, col2 = st.columns(2)
     col1.metric("Clientes Cadastrados", total_clientes)
     col1.metric("Vendas Realizadas", total_vendas)
@@ -188,14 +183,13 @@ def cadastro_empresa():
 
 def cadastro_cliente():
     st.title("Cadastro de Cliente")
-
     with st.form("form_cliente"):
         nome = st.text_input("Nome Completo")
         telefone = st.text_input("Telefone")
         email = st.text_input("Email")
         st.write("Assinatura (use mouse ou touch para desenhar):")
         canvas_result = st_canvas(
-            fill_color="rgba(0, 0, 0, 0)",  # Transparent
+            fill_color="rgba(0, 0, 0, 0)", 
             stroke_width=2,
             stroke_color="#000000",
             background_color="#eee",
@@ -210,8 +204,6 @@ def cadastro_cliente():
                 return
             assinatura_bytes = None
             if canvas_result.image_data is not None:
-                import io
-                from PIL import Image
                 img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
                 buffer = io.BytesIO()
                 img.save(buffer, format="PNG")
@@ -223,7 +215,6 @@ def cadastro_cliente():
 
 def cadastro_produtos():
     st.title("Cadastro de Produtos")
-
     produtos = cursor.execute("SELECT * FROM produtos").fetchall()
     with st.form("form_produto"):
         nome = st.text_input("Nome do Produto")
@@ -238,7 +229,6 @@ def cadastro_produtos():
                            (nome, quantidade, preco_custo, preco_venda))
             conn.commit()
             st.success("Produto adicionado!")
-
     if produtos:
         st.subheader("Produtos Cadastrados")
         for prod in produtos:
@@ -252,7 +242,6 @@ def cadastro_produtos():
 
 def cadastro_servicos():
     st.title("Cadastro de Serviços")
-
     servicos = cursor.execute("SELECT * FROM servicos").fetchall()
     with st.form("form_servico"):
         nome = st.text_input("Nome do Serviço")
@@ -267,7 +256,6 @@ def cadastro_servicos():
                            (nome, unidade, quantidade, valor))
             conn.commit()
             st.success("Serviço adicionado!")
-
     if servicos:
         st.subheader("Serviços Cadastrados")
         for serv in servicos:
@@ -281,17 +269,13 @@ def cadastro_servicos():
 
 def agendamento():
     st.title("Agendamento")
-
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
     servicos = cursor.execute("SELECT id, nome FROM servicos").fetchall()
-
     cliente_dict = {nome: id for (id, nome) in clientes}
     servico_dict = {nome: id for (id, nome) in servicos}
-
     cliente_selecionado = st.selectbox("Cliente", list(cliente_dict.keys()))
     data_agendamento = st.date_input("Data do Agendamento", date.today())
     servico_selecionado = st.selectbox("Serviço", list(servico_dict.keys()))
-
     if st.button("Agendar"):
         cliente_id = cliente_dict[cliente_selecionado]
         servico_id = servico_dict[servico_selecionado]
@@ -300,7 +284,6 @@ def agendamento():
                        (cliente_id, data_str, servico_id))
         conn.commit()
         st.success("Agendamento realizado!")
-
     st.subheader("Agendamentos futuros")
     agend = cursor.execute("""
         SELECT agendamentos.id, clientes.nome, agendamentos.data, servicos.nome
@@ -310,53 +293,41 @@ def agendamento():
         WHERE agendamentos.data >= ?
         ORDER BY agendamentos.data
         """, (date.today().strftime("%Y-%m-%d"),)).fetchall()
-
     for ag in agend:
         st.write(f"ID: {ag[0]} | Cliente: {ag[1]} | Data: {ag[2]} | Serviço: {ag[3]}")
 
 def vendas():
     st.title("Vendas")
-
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
     produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos").fetchall()
     servicos = cursor.execute("SELECT id, nome, valor FROM servicos").fetchall()
-
     cliente_dict = {nome: id for (id, nome) in clientes}
     produto_dict = {nome: (id, qtd, preco) for (id, nome, qtd, preco) in produtos}
     servico_dict = {nome: (id, valor) for (id, nome, valor) in servicos}
-
     cliente_selecionado = st.selectbox("Cliente", list(cliente_dict.keys()))
     opcoes_venda = st.radio("Tipo de Venda", ["Produtos", "Serviços", "Ambos"])
-
     itens_venda = []
     total = 0.0
-
     if opcoes_venda in ["Produtos", "Ambos"]:
         st.subheader("Produtos")
         produtos_selecionados = st.multiselect("Selecione produtos", list(produto_dict.keys()))
         for p in produtos_selecionados:
-            _, (id_p, qtd_estoque, preco_venda) = p, produto_dict[p]
-            quantidade = st.number_input(f"Quantidade para {p} (estoque: {qtd_estoque})", min_value=1, max_value=qtd_estoque)
+            id_p, qtd_estoque, preco_venda = produto_dict[p]
+            quantidade = st.number_input(f"Quantidade para {p} (estoque: {qtd_estoque})", min_value=1, max_value=qtd_estoque, key=f"prod_{id_p}")
             itens_venda.append(("produto", id_p, quantidade, preco_venda))
             total += preco_venda * quantidade
-
     if opcoes_venda in ["Serviços", "Ambos"]:
         st.subheader("Serviços")
         servicos_selecionados = st.multiselect("Selecione serviços", list(servico_dict.keys()))
         for s in servicos_selecionados:
             id_s, valor = servico_dict[s]
-            quantidade = st.number_input(f"Quantidade para {s}", min_value=1, max_value=100)
+            quantidade = st.number_input(f"Quantidade para {s}", min_value=1, max_value=100, key=f"serv_{id_s}")
             itens_venda.append(("servico", id_s, quantidade, valor))
             total += valor * quantidade
-
-    st.write(f"Total: R$ {total:.2f}")
-
+    st.write(f"**Total da venda: R$ {total:.2f}**")
     if st.button("Finalizar Venda"):
-        if not cliente_selecionado:
-            st.error("Selecione um cliente")
-            return
-        if len(itens_venda) == 0:
-            st.error("Selecione pelo menos um item para venda")
+        if total == 0:
+            st.error("Selecione ao menos um produto ou serviço para vender.")
             return
         cliente_id = cliente_dict[cliente_selecionado]
         data_hoje = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -367,81 +338,60 @@ def vendas():
                            (venda_id, tipo, item_id, qtd, preco))
             if tipo == "produto":
                 # Atualiza estoque
-                cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?", (qtd, item_id))
+                cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id=?", (qtd, item_id))
         conn.commit()
-        st.success(f"Venda finalizada com total R$ {total:.2f}")
+        st.success(f"Venda finalizada com sucesso! Total: R$ {total:.2f}")
 
 def cancelar_vendas():
     st.title("Cancelar Vendas")
-
-    data_inicio = st.date_input("Data início", value=date.today())
-    data_fim = st.date_input("Data fim", value=date.today())
-
-    vendas_filtro = cursor.execute("""
+    data_inicio = st.date_input("Data Início", value=date.today())
+    data_fim = st.date_input("Data Fim", value=date.today())
+    vendas_cancel = cursor.execute("""
         SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
         FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
-        WHERE vendas.data BETWEEN ? AND ?
-        """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
-
-    if vendas_filtro:
-        st.subheader("Vendas")
-        for venda in vendas_filtro:
-            venda_id, cliente_nome, data_venda, total, cancelada = venda
-            st.write(f"ID: {venda_id} | Cliente: {cliente_nome} | Data: {data_venda} | Total: R$ {total:.2f} | Cancelada: {'Sim' if cancelada else 'Não'}")
-            if not cancelada and st.button(f"Cancelar venda {venda_id}"):
-                # Cancelar venda e ajustar estoque
-                cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
-                itens = cursor.execute("SELECT tipo, item_id, quantidade FROM venda_itens WHERE venda_id=?", (venda_id,)).fetchall()
-                for tipo, item_id, qtd in itens:
-                    if tipo == "produto":
-                        cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
-                conn.commit()
-                st.success(f"Venda {venda_id} cancelada e estoque ajustado")
-                st.experimental_rerun()
+        WHERE vendas.data BETWEEN ? AND ? AND vendas.cancelada=0
+    """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
+    if vendas_cancel:
+        df = pd.DataFrame(vendas_cancel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
+        st.dataframe(df)
+        venda_id = st.number_input("Informe o ID da venda para cancelar", min_value=1, step=1)
+        if st.button("Cancelar Venda"):
+            venda = cursor.execute("SELECT * FROM vendas WHERE id=? AND cancelada=0", (venda_id,)).fetchone()
+            if not venda:
+                st.error("Venda não encontrada ou já cancelada.")
+                return
+            # Atualiza estoque para produtos vendidos
+            itens = cursor.execute("SELECT tipo, item_id, quantidade FROM venda_itens WHERE venda_id=?", (venda_id,)).fetchall()
+            for tipo, item_id, qtd in itens:
+                if tipo == "produto":
+                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
+            cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
+            conn.commit()
+            st.success(f"Venda {venda_id} cancelada e estoque ajustado.")
     else:
-        st.info("Nenhuma venda encontrada no período")
+        st.info("Nenhuma venda encontrada no período selecionado.")
 
 def relatorios():
     st.title("Relatórios")
-
-    data_inicio = st.date_input("Data início", value=date.today())
-    data_fim = st.date_input("Data fim", value=date.today())
-
+    data_inicio = st.date_input("Data Início", value=date.today())
+    data_fim = st.date_input("Data Fim", value=date.today())
     vendas_rel = cursor.execute("""
         SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
         FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
         WHERE vendas.data BETWEEN ? AND ?
         """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
-
     if vendas_rel:
         df = pd.DataFrame(vendas_rel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
         st.dataframe(df)
-
-        # Gráfico total vendas x canceladas
         total_vendas = df[df["Cancelada"] == 0]["Total"].sum()
         total_canceladas = df[df["Cancelada"] == 1]["Total"].sum()
-
         fig, ax = plt.subplots()
         ax.bar(["Vendas Realizadas", "Vendas Canceladas"], [total_vendas, total_canceladas], color=["green", "red"])
         ax.set_ylabel("Valor (R$)")
         ax.set_title("Vendas no Período")
         st.pyplot(fig)
-
-        # Exportar PDF do relatório
-        if st.button("Exportar relatório em PDF"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", "B", 16)
-            pdf.cell(0, 10, "Relatório de Vendas", 0, 1, "C")
-            pdf.set_font("Arial", "", 12)
-            pdf.cell(0, 10, f"Período: {data_inicio} a {data_fim}", 0, 1, "C")
-            pdf.ln(10)
-            for _, row in df.iterrows():
-                pdf.cell(0, 10, f"ID: {row['ID']} | Cliente: {row['Cliente']} | Data: {row['Data']} | Total: R$ {row['Total']:.2f} | Cancelada: {'Sim' if row['Cancelada'] else 'Não'}", 0, 1)
-            pdf_output = pdf.output(dest='S').encode('latin1')
-            st.download_button("Download PDF", data=pdf_output, file_name="relatorio_vendas.pdf", mime="application/pdf")
     else:
-        st.info("Nenhuma venda no período selecionado")
+        st.info("Nenhuma venda no período selecionado.")
 
 def main():
     st.set_page_config(page_title="Studio Depilação", layout="wide")
@@ -449,7 +399,6 @@ def main():
         tela_login()
     else:
         menu = menu_lateral()
-
         if menu == "Iniciar":
             pagina_iniciar()
         elif menu == "Dashboard":
