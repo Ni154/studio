@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import io
 
-# Banco de dados
+# --- Banco de dados ---
 conn = sqlite3.connect("studio_depilation.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -32,32 +32,30 @@ def criar_tabelas():
         nome TEXT,
         telefone TEXT,
         email TEXT,
-        assinatura BLOB,
-        data_nasc TEXT,
         instagram TEXT,
-        cantor_fav TEXT,
-        bebida_fav TEXT,
-        fez_cepilacao TEXT,
+        cantor_favorito TEXT,
+        bebida_favorita TEXT,
+        fez_cepilacao_cera TEXT,
         alergia TEXT,
         alergia_qual TEXT,
-        problemas_pele TEXT,
-        tratamento_derm TEXT,
+        problema_pele TEXT,
+        tratamento_dermatologico TEXT,
         tipo_pele TEXT,
         hidrata_pele TEXT,
         gravida TEXT,
-        usa_medicamento TEXT,
+        uso_medicamento TEXT,
         medicamento_qual TEXT,
-        diu_marcapasso TEXT,
+        utiliza_diu_marcapasso TEXT,
         diabete TEXT,
         pelos_encravados TEXT,
         cirurgia_recente TEXT,
         foliculite TEXT,
         foliculite_qual TEXT,
-        problema_informar TEXT,
+        problema_antes_procedimento TEXT,
         problema_qual TEXT,
-        autoriza_imagens TEXT
-    )
-    """)
+        autoriza_imagem TEXT,
+        assinatura BLOB
+    )""")
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,17 +112,18 @@ def criar_admin():
 
 criar_admin()
 
-def autenticar(usuario, senha):
-    user = cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario, senha)).fetchone()
-    return user is not None
-
+# --- Sessão e autenticação ---
 if "login" not in st.session_state:
     st.session_state["login"] = False
 if "usuario" not in st.session_state:
     st.session_state["usuario"] = ""
 
+def autenticar(usuario, senha):
+    user = cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario, senha)).fetchone()
+    return user is not None
+
 def tela_login():
-    st.title("Login - Studio de Depilação")
+    st.title("🔒 Login - Studio de Depilação")
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
     if st.button("Entrar"):
@@ -135,26 +134,37 @@ def tela_login():
         else:
             st.error("Usuário ou senha inválidos")
 
+# --- Menu lateral fixo ---
 def menu_lateral():
-    try:
-        st.image("logo.png", width=150)
-    except:
-        st.write("Logo aqui")
-    menu = st.sidebar.radio("Menu", [
-        "Iniciar",
-        "Dashboard",
-        "Cadastro Empresa",
-        "Cadastro Cliente",
-        "Cadastro Produtos",
-        "Cadastro Serviços",
-        "Agendamento",
-        "Vendas",
-        "Cancelar Vendas",
-        "Relatórios",
-        "Sair"
-    ])
+    st.sidebar.image("logo.png", width=150, use_column_width=False)
+    st.sidebar.markdown("## Menu")
+    # Usar botões fixos
+    menu = None
+    if st.sidebar.button("🏠 Iniciar"):
+        menu = "Iniciar"
+    if st.sidebar.button("📊 Dashboard"):
+        menu = "Dashboard"
+    if st.sidebar.button("🏢 Cadastro Empresa"):
+        menu = "Cadastro Empresa"
+    if st.sidebar.button("👥 Cadastro Cliente"):
+        menu = "Cadastro Cliente"
+    if st.sidebar.button("📦 Cadastro Produtos"):
+        menu = "Cadastro Produtos"
+    if st.sidebar.button("💼 Cadastro Serviços"):
+        menu = "Cadastro Serviços"
+    if st.sidebar.button("📅 Agendamento"):
+        menu = "Agendamento"
+    if st.sidebar.button("💰 Vendas"):
+        menu = "Vendas"
+    if st.sidebar.button("❌ Cancelar Vendas"):
+        menu = "Cancelar Vendas"
+    if st.sidebar.button("📈 Relatórios"):
+        menu = "Relatórios"
+    if st.sidebar.button("🚪 Sair"):
+        menu = "Sair"
     return menu
 
+# --- Páginas ---
 def pagina_iniciar():
     st.header(f"Bem-vindo {st.session_state['usuario']} ao Studio de Depilação!")
     st.write("Vamos iniciar mais um dia produtivo!")
@@ -174,7 +184,7 @@ def pagina_iniciar():
         st.write("Nenhum agendamento para hoje.")
 
 def dashboard():
-    st.title("Dashboard")
+    st.title("📊 Dashboard")
     total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
     total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=0").fetchone()[0]
     total_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=1").fetchone()[0]
@@ -187,7 +197,7 @@ def dashboard():
     col2.metric("Estoque Total Produtos", total_estoque)
 
 def cadastro_empresa():
-    st.title("Cadastro da Empresa")
+    st.title("🏢 Cadastro da Empresa")
     empresa = cursor.execute("SELECT * FROM empresa WHERE id=1").fetchone()
     with st.form("form_empresa"):
         nome = st.text_input("Nome", value=empresa[1] if empresa else "")
@@ -205,58 +215,46 @@ def cadastro_empresa():
             st.success("Dados da empresa salvos com sucesso!")
 
 def cadastro_cliente():
-    st.title("Cadastro de Cliente - Ficha de Avaliação")
-
-    with st.form("form_cliente_completo"):
+    st.title("👥 Cadastro de Cliente - Ficha de Avaliação")
+    with st.form("form_cliente"):
         nome = st.text_input("Nome Completo")
-        telefone = st.text_input("Número de Telefone")
+        telefone = st.text_input("Número de telefone")
         email = st.text_input("Email")
-        data_nasc = st.date_input("Data de Nascimento")
         instagram = st.text_input("Instagram")
-        cantor_fav = st.text_input("Cantor Favorito")
-        bebida_fav = st.text_input("Bebida Favorita")
+        cantor_favorito = st.text_input("Cantor favorito")
+        bebida_favorita = st.text_input("Bebida favorita")
 
-        fez_cepilacao = st.radio("Já fez epilação na cera?", ("Sim", "Não"))
-
-        alergia = st.radio("Possui algum tipo de alergia?", ("Sim", "Não"))
+        fez_cepilacao_cera = st.radio("Já fez epilação na cera?", ["SIM", "NÃO"])
+        alergia = st.radio("Possui algum tipo de alergia?", ["SIM", "NÃO"])
         alergia_qual = ""
-        if alergia == "Sim":
+        if alergia == "SIM":
             alergia_qual = st.text_input("Qual?")
 
-        problemas_pele = st.radio("Problemas de pele?", ("Sim", "Não"))
-
-        tratamento_derm = st.radio("Está em tratamento dermatológico?", ("Sim", "Não"))
-
-        tipo_pele = st.selectbox("Tipo de pele", ("Seca", "Oleosa", "Normal"))
-
-        hidrata_pele = st.radio("Hidrata a pele com frequência?", ("Sim", "Não"))
-
-        gravida = st.radio("Está grávida?", ("Sim", "Não"))
-
-        usa_medicamento = st.radio("Faz uso de algum medicamento?", ("Sim", "Não"))
+        problema_pele = st.radio("Problemas de pele?", ["SIM", "NÃO"])
+        tratamento_dermatologico = st.radio("Está em tratamento dermatológico?", ["SIM", "NÃO"])
+        tipo_pele = st.radio("Tipo de pele?", ["SECA", "OLEOSA", "NORMAL"])
+        hidrata_pele = st.radio("Hidrata a pele com frequência?", ["SIM", "NÃO"])
+        gravida = st.radio("Está gravida?", ["SIM", "NÃO"])
+        uso_medicamento = st.radio("Faz uso de algum medicamento?", ["SIM", "NÃO"])
         medicamento_qual = ""
-        if usa_medicamento == "Sim":
+        if uso_medicamento == "SIM":
             medicamento_qual = st.text_input("Qual?")
 
-        diu_marcapasso = st.radio("Utiliza DIU ou Marca-passo?", ("DIU", "Marca-passo", "Nenhum"))
-
-        diabete = st.radio("Diabete?", ("Sim", "Não"))
-
-        pelos_encravados = st.radio("Pelos encravados?", ("Sim", "Não"))
-
-        cirurgia_recente = st.radio("Realizou alguma cirurgia recentemente?", ("Sim", "Não"))
-
-        foliculite = st.radio("Foliculite?", ("Sim", "Não"))
+        utiliza_diu_marcapasso = st.radio("Utiliza DIU ou Marca-passo?", ["DIU", "Marca-passo", "Nenhum"])
+        diabete = st.radio("Diabete?", ["SIM", "NÃO"])
+        pelos_encravados = st.radio("Pelos encravados?", ["SIM", "NÃO"])
+        cirurgia_recente = st.radio("Realizou alguma cirurgia recentemente?", ["SIM", "NÃO"])
+        foliculite = st.radio("Foliculite?", ["SIM", "NÃO"])
         foliculite_qual = ""
-        if foliculite == "Sim":
+        if foliculite == "SIM":
             foliculite_qual = st.text_input("Qual?")
 
-        problema_informar = st.radio("Algum problema que seja necessário nos informar antes do procedimento?", ("Sim", "Não"))
+        problema_antes_procedimento = st.radio("Algum problema que seja necessário nos informar antes do procedimento?", ["SIM", "NÃO"])
         problema_qual = ""
-        if problema_informar == "Sim":
+        if problema_antes_procedimento == "SIM":
             problema_qual = st.text_input("Qual?")
 
-        autoriza_imagens = st.radio("Autoriza o uso de imagens para redes sociais?", ("Sim", "Não"))
+        autoriza_imagem = st.radio("Autoriza o uso de imagens para redes sociais?", ["SIM", "NÃO"])
 
         st.write("Assinatura (use mouse ou touch para desenhar):")
         canvas_result = st_canvas(
@@ -267,10 +265,10 @@ def cadastro_cliente():
             height=150,
             width=400,
             drawing_mode="freedraw",
-            key="canvas_assinatura"
+            key="canvas"
         )
 
-        if st.form_submit_button("Salvar Cliente"):
+        if st.form_submit_button("Salvar"):
             if not nome:
                 st.error("Nome é obrigatório")
                 return
@@ -280,77 +278,216 @@ def cadastro_cliente():
                 buffer = io.BytesIO()
                 img.save(buffer, format="PNG")
                 assinatura_bytes = buffer.getvalue()
-            
+
             cursor.execute("""
                 INSERT INTO clientes (
-                    nome, telefone, email, assinatura,
-                    data_nasc, instagram, cantor_fav, bebida_fav,
-                    fez_cepilacao,
-                    alergia, alergia_qual,
-                    problemas_pele,
-                    tratamento_derm,
-                    tipo_pele,
-                    hidrata_pele,
-                    gravida,
-                    usa_medicamento, medicamento_qual,
-                    diu_marcapasso,
-                    diabete,
-                    pelos_encravados,
-                    cirurgia_recente,
-                    foliculite, foliculite_qual,
-                    problema_informar, problema_qual,
-                    autoriza_imagens
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    nome, telefone, email, instagram, cantor_favorito, bebida_favorita,
+                    fez_cepilacao_cera, alergia, alergia_qual, problema_pele, tratamento_dermatologico,
+                    tipo_pele, hidrata_pele, gravida, uso_medicamento, medicamento_qual,
+                    utiliza_diu_marcapasso, diabete, pelos_encravados, cirurgia_recente, foliculite,
+                    foliculite_qual, problema_antes_procedimento, problema_qual, autoriza_imagem, assinatura
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
-                nome, telefone, email, assinatura_bytes,
-                data_nasc.strftime("%Y-%m-%d"), instagram, cantor_fav, bebida_fav,
-                fez_cepilacao,
-                alergia, alergia_qual,
-                problemas_pele,
-                tratamento_derm,
-                tipo_pele,
-                hidrata_pele,
-                gravida,
-                usa_medicamento, medicamento_qual,
-                diu_marcapasso,
-                diabete,
-                pelos_encravados,
-                cirurgia_recente,
-                foliculite, foliculite_qual,
-                problema_informar, problema_qual,
-                autoriza_imagens
+                nome, telefone, email, instagram, cantor_favorito, bebida_favorita,
+                fez_cepilacao_cera, alergia, alergia_qual, problema_pele, tratamento_dermatologico,
+                tipo_pele, hidrata_pele, gravida, uso_medicamento, medicamento_qual,
+                utiliza_diu_marcapasso, diabete, pelos_encravados, cirurgia_recente, foliculite,
+                foliculite_qual, problema_antes_procedimento, problema_qual, autoriza_imagem, assinatura_bytes
             ))
             conn.commit()
-            st.success("Cliente cadastrado com ficha de avaliação completa!")
-
-# ... o restante do código permanece igual, sem mudanças
-# cadastro_produtos, cadastro_servicos, agendamento, vendas, cancelar_vendas, relatorios, etc.
-
-# Vou repetir as funções finais para completar a estrutura:
-
+            st.success("Cliente cadastrado com sucesso!")
 def cadastro_produtos():
-    # Seu código de cadastro_produtos aqui (igual ao que mandou)
-    pass
+    st.title("📦 Cadastro de Produtos")
+    produtos = cursor.execute("SELECT * FROM produtos").fetchall()
+    with st.form("form_produto"):
+        nome = st.text_input("Nome do Produto")
+        quantidade = st.number_input("Quantidade", min_value=0, step=1)
+        preco_custo = st.number_input("Preço de Custo", min_value=0.0, step=0.01, format="%.2f")
+        preco_venda = st.number_input("Preço de Venda", min_value=0.0, step=0.01, format="%.2f")
+        if st.form_submit_button("Adicionar Produto"):
+            if not nome:
+                st.error("Nome do produto é obrigatório")
+                return
+            cursor.execute("INSERT INTO produtos (nome, quantidade, preco_custo, preco_venda) VALUES (?, ?, ?, ?)",
+                           (nome, quantidade, preco_custo, preco_venda))
+            conn.commit()
+            st.success("Produto adicionado!")
+    if produtos:
+        st.subheader("Produtos Cadastrados")
+        for prod in produtos:
+            col1, col2 = st.columns([8, 2])
+            with col1:
+                st.write(f"ID: {prod[0]} | Nome: {prod[1]} | Qtd: {prod[2]} | Custo: R${prod[3]:.2f} | Venda: R${prod[4]:.2f}")
+            with col2:
+                if st.button(f"Excluir Produto {prod[0]}", key=f"excluir_prod_{prod[0]}"):
+                    cursor.execute("DELETE FROM produtos WHERE id=?", (prod[0],))
+                    conn.commit()
+                    st.experimental_rerun()
+    else:
+        st.info("Nenhum produto cadastrado.")
 
 def cadastro_servicos():
-    # Seu código de cadastro_servicos aqui (igual ao que mandou)
-    pass
+    st.title("💼 Cadastro de Serviços")
+    servicos = cursor.execute("SELECT * FROM servicos").fetchall()
+    with st.form("form_servico"):
+        nome = st.text_input("Nome do Serviço")
+        unidade = st.text_input("Unidade (ex: sessão)")
+        quantidade = st.number_input("Quantidade em estoque", min_value=0, step=1)
+        valor = st.number_input("Valor do Serviço", min_value=0.0, step=0.01, format="%.2f")
+        if st.form_submit_button("Adicionar Serviço"):
+            if not nome or not unidade:
+                st.error("Nome e Unidade são obrigatórios")
+                return
+            cursor.execute("INSERT INTO servicos (nome, unidade, quantidade, valor) VALUES (?, ?, ?, ?)",
+                           (nome, unidade, quantidade, valor))
+            conn.commit()
+            st.success("Serviço adicionado!")
+    if servicos:
+        st.subheader("Serviços Cadastrados")
+        for serv in servicos:
+            col1, col2 = st.columns([8, 2])
+            with col1:
+                st.write(f"ID: {serv[0]} | Nome: {serv[1]} | Unidade: {serv[2]} | Qtd: {serv[3]} | Valor: R${serv[4]:.2f}")
+            with col2:
+                if st.button(f"Excluir Serviço {serv[0]}", key=f"excluir_serv_{serv[0]}"):
+                    cursor.execute("DELETE FROM servicos WHERE id=?", (serv[0],))
+                    conn.commit()
+                    st.experimental_rerun()
+    else:
+        st.info("Nenhum serviço cadastrado.")
 
 def agendamento():
-    # Seu código de agendamento aqui (igual ao que mandou)
-    pass
+    st.title("📅 Agendamento")
+    clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
+    servicos = cursor.execute("SELECT id, nome FROM servicos").fetchall()
+    if not clientes or not servicos:
+        st.warning("Cadastre clientes e serviços antes de agendar.")
+        return
+    cliente_dict = {nome: id for (id, nome) in clientes}
+    servico_dict = {nome: id for (id, nome) in servicos}
+    cliente_selecionado = st.selectbox("Cliente", list(cliente_dict.keys()))
+    data_agendamento = st.date_input("Data do Agendamento", date.today())
+    servico_selecionado = st.selectbox("Serviço", list(servico_dict.keys()))
+    if st.button("Agendar"):
+        cliente_id = cliente_dict[cliente_selecionado]
+        servico_id = servico_dict[servico_selecionado]
+        data_str = data_agendamento.strftime("%Y-%m-%d")
+        cursor.execute("INSERT INTO agendamentos (cliente_id, data, servico_id) VALUES (?, ?, ?)",
+                       (cliente_id, data_str, servico_id))
+        conn.commit()
+        st.success("Agendamento realizado!")
+    st.subheader("Agendamentos futuros")
+    agend = cursor.execute("""
+        SELECT agendamentos.id, clientes.nome, agendamentos.data, servicos.nome
+        FROM agendamentos 
+        JOIN clientes ON agendamentos.cliente_id = clientes.id
+        JOIN servicos ON agendamentos.servico_id = servicos.id
+        WHERE agendamentos.data >= ?
+        ORDER BY agendamentos.data
+        """, (date.today().strftime("%Y-%m-%d"),)).fetchall()
+    for ag in agend:
+        st.write(f"ID: {ag[0]} | Cliente: {ag[1]} | Data: {ag[2]} | Serviço: {ag[3]}")
 
 def vendas():
-    # Seu código de vendas aqui (igual ao que mandou)
-    pass
+    st.title("💰 Vendas")
+    clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
+    produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos").fetchall()
+    servicos = cursor.execute("SELECT id, nome, valor FROM servicos").fetchall()
+    if not clientes:
+        st.warning("Cadastre clientes antes de realizar vendas.")
+        return
+    cliente_dict = {nome: id for (id, nome) in clientes}
+    produto_dict = {nome: (id, qtd, preco) for (id, nome, qtd, preco) in produtos}
+    servico_dict = {nome: (id, valor) for (id, nome, valor) in servicos}
+    cliente_selecionado = st.selectbox("Cliente", list(cliente_dict.keys()))
+    opcoes_venda = st.radio("Tipo de Venda", ["Produtos", "Serviços", "Ambos"])
+    itens_venda = []
+    total = 0.0
+
+    if opcoes_venda in ["Produtos", "Ambos"]:
+        st.subheader("Produtos")
+        produtos_selecionados = st.multiselect("Selecione produtos", list(produto_dict.keys()))
+        for p in produtos_selecionados:
+            id_p, qtd_estoque, preco_venda = produto_dict[p]
+            quantidade = st.number_input(f"Quantidade para {p} (estoque: {qtd_estoque})", min_value=1, max_value=qtd_estoque, key=f"prod_{id_p}")
+            itens_venda.append(("produto", id_p, quantidade, preco_venda))
+            total += preco_venda * quantidade
+
+    if opcoes_venda in ["Serviços", "Ambos"]:
+        st.subheader("Serviços")
+        servicos_selecionados = st.multiselect("Selecione serviços", list(servico_dict.keys()))
+        for s in servicos_selecionados:
+            id_s, valor = servico_dict[s]
+            quantidade = st.number_input(f"Quantidade para {s}", min_value=1, max_value=100, key=f"serv_{id_s}")
+            itens_venda.append(("servico", id_s, quantidade, valor))
+            total += valor * quantidade
+
+    st.write(f"**Total da venda: R$ {total:.2f}**")
+    if st.button("Finalizar Venda"):
+        if total == 0:
+            st.error("Selecione ao menos um produto ou serviço para vender.")
+            return
+        cliente_id = cliente_dict[cliente_selecionado]
+        data_hoje = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO vendas (cliente_id, data, total) VALUES (?, ?, ?)", (cliente_id, data_hoje, total))
+        venda_id = cursor.lastrowid
+        for tipo, item_id, qtd, preco in itens_venda:
+            cursor.execute("INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                           (venda_id, tipo, item_id, qtd, preco))
+            if tipo == "produto":
+                cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id=?", (qtd, item_id))
+        conn.commit()
+        st.success(f"Venda finalizada com sucesso! Total: R$ {total:.2f}")
 
 def cancelar_vendas():
-    # Seu código de cancelar_vendas aqui (igual ao que mandou)
-    pass
+    st.title("❌ Cancelar Vendas")
+    data_inicio = st.date_input("Data Início", value=date.today())
+    data_fim = st.date_input("Data Fim", value=date.today())
+    vendas_cancel = cursor.execute("""
+        SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
+        FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
+        WHERE vendas.data BETWEEN ? AND ? AND vendas.cancelada=0
+    """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
+    if vendas_cancel:
+        df = pd.DataFrame(vendas_cancel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
+        st.dataframe(df)
+        venda_id = st.number_input("Informe o ID da venda para cancelar", min_value=1, step=1)
+        if st.button("Cancelar Venda"):
+            venda = cursor.execute("SELECT * FROM vendas WHERE id=? AND cancelada=0", (venda_id,)).fetchone()
+            if not venda:
+                st.error("Venda não encontrada ou já cancelada.")
+                return
+            itens = cursor.execute("SELECT tipo, item_id, quantidade FROM venda_itens WHERE venda_id=?", (venda_id,)).fetchall()
+            for tipo, item_id, qtd in itens:
+                if tipo == "produto":
+                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
+            cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
+            conn.commit()
+            st.success(f"Venda {venda_id} cancelada e estoque ajustado.")
+    else:
+        st.info("Nenhuma venda encontrada no período selecionado.")
 
 def relatorios():
-    # Seu código de relatorios aqui (igual ao que mandou)
-    pass
+    st.title("📈 Relatórios")
+    data_inicio = st.date_input("Data Início", value=date.today())
+    data_fim = st.date_input("Data Fim", value=date.today())
+    vendas_rel = cursor.execute("""
+        SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
+        FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
+        WHERE vendas.data BETWEEN ? AND ?
+        """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
+    if vendas_rel:
+        df = pd.DataFrame(vendas_rel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
+        st.dataframe(df)
+        total_vendas = df[df["Cancelada"] == 0]["Total"].sum()
+        total_canceladas = df[df["Cancelada"] == 1]["Total"].sum()
+        fig, ax = plt.subplots()
+        ax.bar(["Vendas Realizadas", "Vendas Canceladas"], [total_vendas, total_canceladas], color=["green", "red"])
+        ax.set_ylabel("Valor (R$)")
+        ax.set_title("Vendas no Período")
+        st.pyplot(fig)
+    else:
+        st.info("Nenhuma venda no período selecionado.")
 
 def main():
     st.set_page_config(page_title="Studio Depilação", layout="wide")
@@ -358,30 +495,34 @@ def main():
         tela_login()
     else:
         menu = menu_lateral()
-        if menu == "Iniciar":
+        if not menu:
+            # Caso usuário abra o app e não clique em menu, mostramos a tela inicial
             pagina_iniciar()
-        elif menu == "Dashboard":
-            dashboard()
-        elif menu == "Cadastro Empresa":
-            cadastro_empresa()
-        elif menu == "Cadastro Cliente":
-            cadastro_cliente()
-        elif menu == "Cadastro Produtos":
-            cadastro_produtos()
-        elif menu == "Cadastro Serviços":
-            cadastro_servicos()
-        elif menu == "Agendamento":
-            agendamento()
-        elif menu == "Vendas":
-            vendas()
-        elif menu == "Cancelar Vendas":
-            cancelar_vendas()
-        elif menu == "Relatórios":
-            relatorios()
-        elif menu == "Sair":
-            st.session_state["login"] = False
-            st.session_state["usuario"] = ""
-            st.experimental_rerun()
+        else:
+            if menu == "Iniciar":
+                pagina_iniciar()
+            elif menu == "Dashboard":
+                dashboard()
+            elif menu == "Cadastro Empresa":
+                cadastro_empresa()
+            elif menu == "Cadastro Cliente":
+                cadastro_cliente()
+            elif menu == "Cadastro Produtos":
+                cadastro_produtos()
+            elif menu == "Cadastro Serviços":
+                cadastro_servicos()
+            elif menu == "Agendamento":
+                agendamento()
+            elif menu == "Vendas":
+                vendas()
+            elif menu == "Cancelar Vendas":
+                cancelar_vendas()
+            elif menu == "Relatórios":
+                relatorios()
+            elif menu == "Sair":
+                st.session_state["login"] = False
+                st.session_state["usuario"] = ""
+                st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
