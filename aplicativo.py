@@ -191,24 +191,32 @@ else:
         st.experimental_rerun()
 # Parte 2 - Continuação do sistema completo
 
-    elif menu == "Cadastro Produtos":
-        st.subheader("🌿 Cadastro de Produtos")
-        with st.form("form_produto"):
-            nome = st.text_input("Nome do Produto")
-            quantidade = st.number_input("Quantidade", min_value=0, step=1)
-            preco_custo = st.number_input("Preço de Custo", min_value=0.0, step=0.01, format="%.2f")
-            preco_venda = st.number_input("Preço de Venda", min_value=0.0, step=0.01, format="%.2f")
-            if st.form_submit_button("Salvar Produto"):
-                cursor.execute("""
-                    INSERT INTO produtos (nome, quantidade, preco_custo, preco_venda)
-                    VALUES (?, ?, ?, ?)""", (nome, quantidade, preco_custo, preco_venda))
-                conn.commit()
-                st.success("Produto cadastrado com sucesso!")
-
-        st.write("Produtos cadastrados:")
-        produtos = cursor.execute("SELECT * FROM produtos").fetchall()
+    def cadastro_produtos():
+    st.title("Cadastro de Produtos")
+    produtos = cursor.execute("SELECT * FROM produtos").fetchall()
+    with st.form("form_produto"):
+        nome = st.text_input("Nome do Produto")
+        quantidade = st.number_input("Quantidade", min_value=0, step=1)
+        preco_custo = st.number_input("Preço de Custo", min_value=0.0, step=0.01, format="%.2f")
+        preco_venda = st.number_input("Preço de Venda", min_value=0.0, step=0.01, format="%.2f")
+        if st.form_submit_button("Adicionar Produto"):
+            if not nome:
+                st.error("Nome do produto é obrigatório")
+                return
+            cursor.execute("INSERT INTO produtos (nome, quantidade, preco_custo, preco_venda) VALUES (?, ?, ?, ?)",
+                           (nome, quantidade, preco_custo, preco_venda))
+            conn.commit()
+            st.success("Produto adicionado!")
+    if produtos:
+        st.subheader("Produtos Cadastrados")
         for prod in produtos:
-            st.write(f"{prod[0]} - {prod[1]} | Qtd: {prod[2]} | Venda: R${prod[4]:.2f}")
+            st.write(f"ID: {prod[0]} | Nome: {prod[1]} | Qtd: {prod[2]} | Custo: R${prod[3]:.2f} | Venda: R${prod[4]:.2f}")
+            if st.button(f"Excluir Produto {prod[0]}"):
+                cursor.execute("DELETE FROM produtos WHERE id=?", (prod[0],))
+                conn.commit()
+                st.experimental_rerun()
+    else:
+        st.info("Nenhum produto cadastrado.")
 
     elif menu == "Cadastro Serviços":
         st.subheader("🚗 Cadastro de Serviços")
