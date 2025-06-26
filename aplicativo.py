@@ -159,7 +159,7 @@ def menu_lateral_botao(opcoes, key):
             classe += " menu-btn-selected"
         if st.button(opcao, key=f"menu_{i}_{opcao}"):
             st.session_state[key] = opcao
-            st.experimental_rerun()
+            st.rerun()
     return st.session_state.get(key)
 
 # Lista de opções do menu
