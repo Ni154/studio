@@ -504,9 +504,48 @@ elif menu == "Relatórios":
 
     empresa = cursor.execute("SELECT nome, cnpj, endereco, telefone, email FROM empresa LIMIT 1").fetchone()
 
+    def gerar_pdf_relatorio(titulo, periodo, df, colunas, file_name):
+        import pdfkit
+        from tempfile import NamedTemporaryFile
+
+        cabecalho = f"""
+        <h2 style='text-align:center'>{empresa[0] if empresa else 'Studio de Depilação'}</h2>
+        <p style='text-align:center'>
+        CNPJ: {empresa[1] if empresa else ''}<br>
+        Endereço: {empresa[2] if empresa else ''}<br>
+        Telefone: {empresa[3] if empresa else ''}<br>
+        Email: {empresa[4] if empresa else ''}
+        </p>
+        <hr>
+        <h3>{titulo}</h3>
+        <p>Período: {periodo[0]} até {periodo[1]}</p>
+        <table border="1" style="width:100%; border-collapse: collapse;">
+            <thead><tr>{''.join(f'<th>{col}</th>' for col in colunas)}</tr></thead><tbody>
+        """
+
+        linhas = ""
+        for _, row in df.iterrows():
+            linhas += "<tr>" + "".join(f"<td>{row[col]}</td>" if not isinstance(row[col], float) else f"<td>R$ {row[col]:.2f}</td>" for col in colunas) + "</tr>"
+
+        rodape = """
+            </tbody>
+        </table>
+        <hr>
+        <p style='text-align:center; font-size:12px;'>Relatório gerado pelo sistema Studio de Depilação</p>
+        """
+
+        html = cabecalho + linhas + rodape
+
+        with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+            pdfkit.from_string(html, tmp_pdf.name)
+            with open(tmp_pdf.name, "rb") as fpdf:
+                pdf_bytes = fpdf.read()
+
+        st.download_button(f"📄 Baixar {titulo} PDF", data=pdf_bytes, file_name=file_name, mime="application/pdf")
+
     if tipo_rel == "Vendas":
         query = """
-            SELECT v.data, v.forma_pagamento, v.total, c.nome
+            SELECT v.data, v.forma_pagamento, v.total, c.nome as cliente
             FROM vendas v
             LEFT JOIN clientes c ON v.cliente_id = c.id
             WHERE date(v.data) BETWEEN ? AND ?
@@ -518,55 +557,18 @@ elif menu == "Relatórios":
             st.warning("Nenhum dado de vendas encontrado no período.")
         else:
             st.dataframe(df)
-
-            # Gráfico total vendas por dia
-            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='total', title="Total de Vendas por Dia")
+            fig = px.bar(df.groupby('data')['total'].sum().reset_index(), x='data', y='total', title="Total de Vendas por Dia")
             st.plotly_chart(fig)
 
-            # Botão para exportar relatório com cabeçalho e rodapé
-            import pdfkit
-            from tempfile import NamedTemporaryFile
+            gerar_pdf_relatorio(
+                titulo="Relatório de Vendas",
+                periodo=(data_ini, data_fim),
+                df=df,
+                colunas=["data", "forma_pagamento", "total", "cliente"],
+                file_name="relatorio_vendas.pdf"
+            )
 
-            cabecalho = f"""
-            <h2 style='text-align:center'>{empresa[0] if empresa else 'Studio de Depilação'}</h2>
-            <p style='text-align:center'>
-            CNPJ: {empresa[1] if empresa else ''}<br>
-            Endereço: {empresa[2] if empresa else ''}<br>
-            Telefone: {empresa[3] if empresa else ''}<br>
-            Email: {empresa[4] if empresa else ''}
-            </p>
-            <hr>
-            <h3>Relatório de Vendas</h3>
-            <p>Período: {data_ini} até {data_fim}</p>
-            <table border="1" style="width:100%; border-collapse: collapse;">
-                <thead>
-                    <tr><th>Data</th><th>Forma Pagamento</th><th>Total (R$)</th><th>Cliente</th></tr>
-                </thead>
-                <tbody>
-            """
-
-            linhas = ""
-            for _, row in df.iterrows():
-                linhas += f"<tr><td>{row['data']}</td><td>{row['forma_pagamento']}</td><td>R$ {row['total']:.2f}</td><td>{row['nome']}</td></tr>"
-
-            rodape = """
-                </tbody>
-            </table>
-            <hr>
-            <p style='text-align:center; font-size:12px;'>Relatório gerado pelo sistema Studio de Depilação</p>
-            """
-
-            html = cabecalho + linhas + rodape
-
-            with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-                pdfkit.from_string(html, tmp_pdf.name)
-                with open(tmp_pdf.name, "rb") as fpdf:
-                    pdf_bytes = fpdf.read()
-
-            st.download_button("📄 Baixar Relatório de Vendas PDF", data=pdf_bytes, file_name="relatorio_vendas.pdf", mime="application/pdf")
-
-    else:
-        # Relatório Despesas
+    else:  # Despesas
         query = """
             SELECT descricao, valor, data
             FROM despesas
@@ -579,84 +581,25 @@ elif menu == "Relatórios":
             st.warning("Nenhum dado de despesas encontrado no período.")
         else:
             st.dataframe(df)
-
-            fig = px.bar(df.groupby('data').sum().reset_index(), x='data', y='valor', title="Despesas por Dia")
+            fig = px.bar(df.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Despesas por Dia")
             st.plotly_chart(fig)
 
-            import pdfkit
-            from tempfile import NamedTemporaryFile
+            gerar_pdf_relatorio(
+                titulo="Relatório de Despesas",
+                periodo=(data_ini, data_fim),
+                df=df,
+                colunas=["descricao", "valor", "data"],
+                file_name="relatorio_despesas.pdf"
+            )
 
-            cabecalho = f"""
-            <h2 style='text-align:center'>{empresa[0] if empresa else 'Studio de Depilação'}</h2>
-            <p style='text-align:center'>
-            CNPJ: {empresa[1] if empresa else ''}<br>
-            Endereço: {empresa[2] if empresa else ''}<br>
-            Telefone: {empresa[3] if empresa else ''}<br>
-            Email: {empresa[4] if empresa else ''}
-            </p>
-            <hr>
-            <h3>Relatório de Despesas</h3>
-            <p>Período: {data_ini} até {data_fim}</p>
-            <table border="1" style="width:100%; border-collapse: collapse;">
-                <thead>
-                    <tr><th>Descrição</th><th>Valor (R$)</th><th>Data</th></tr>
-                </thead>
-                <tbody>
-            """
+# Menu lateral permanece igual (você já tem a função)
 
-            linhas = ""
-            for _, row in df.iterrows():
-                linhas += f"<tr><td>{row['descricao']}</td><td>R$ {row['valor']:.2f}</td><td>{row['data']}</td></tr>"
-
-            rodape = """
-                </tbody>
-            </table>
-            <hr>
-            <p style='text-align:center; font-size:12px;'>Relatório gerado pelo sistema Studio de Depilação</p>
-            """
-
-            html = cabecalho + linhas + rodape
-
-            with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-                pdfkit.from_string(html, tmp_pdf.name)
-                with open(tmp_pdf.name, "rb") as fpdf:
-                    pdf_bytes = fpdf.read()
-
-            st.download_button("📄 Baixar Relatório de Despesas PDF", data=pdf_bytes, file_name="relatorio_despesas.pdf", mime="application/pdf")
-# Atualize a lista de opções do menu lateral:
-menu_opcoes = ['Início', 'Dashboard', 'Cadastro Empresa', 'Clientes', 'Serviços', 'Produtos', 'Vendas', 'Despesas', 'Relatórios', 'Importação', 'Sair']
-
-# Função menu lateral com botões fixos (mantida igual)
-def menu_lateral_botao(opcoes, key):
-    selected = st.session_state.get(key, opcoes[0])
-    for opcao in opcoes:
-        classe = "menu-btn"
-        if opcao == selected:
-            classe += " menu-btn-selected"
-        if st.button(opcao, key=f"menu_{opcao}"):
-            st.session_state[key] = opcao
-            st.experimental_rerun()
-    return st.session_state.get(key)
-
-# No sidebar, o menu lateral fixo com os botões:
-
-# Implementação do menu "Dashboard"
 if menu == "Dashboard":
     st.title("📊 Dashboard - Informações Gerais")
 
-    # Total de clientes
     total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-
-    # Total de vendas
     total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas").fetchone()[0]
-
-    # Total de vendas canceladas (se quiser registrar cancelamentos, deve ter campo de status, mas como não tem, vamos supor que não há)
-    # Caso tenha, adapte aqui, ex:
-    # total_vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status='Cancelado'").fetchone()[0]
-    # Por enquanto deixamos 0
-    total_vendas_canceladas = 0
-
-    # Total de agendamentos cancelados
+    total_vendas_canceladas = 0  # Atualizar caso registre cancelamentos
     total_agendamentos_cancelados = cursor.execute("SELECT COUNT(*) FROM agendamentos WHERE status='Cancelado'").fetchone()[0]
 
     col1, col2, col3, col4 = st.columns(4)
@@ -667,8 +610,6 @@ if menu == "Dashboard":
 
     st.markdown("---")
     st.markdown("Dashboard com informações resumidas do sistema.")
-
-# Não esqueça que as demais opções (Início, Clientes, Agendamentos, Serviços, Produtos, Vendas, Despesas, Relatórios, Cadastro Empresa, Importação, Sair) permanecem conforme já implementadas.
 
 elif menu == "Vendas":
     st.title("💳 Vendas")
@@ -727,20 +668,17 @@ elif menu == "Vendas":
                 st.error("Selecione ao menos um produto ou serviço para vender.")
                 st.stop()
 
-            # Inserir venda
             cursor.execute(
                 "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
                 (cliente[0], str(date.today()), forma_pagamento, total)
             )
             venda_id = cursor.lastrowid
 
-            # Inserir itens da venda
             if quantidade_prod > 0:
                 cursor.execute(
                     "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
                     (venda_id, "Produto", produto_selecionado, quantidade_prod, valor_prod)
                 )
-                # Atualizar estoque
                 novo_estoque = estoque_atual - quantidade_prod
                 cursor.execute("UPDATE produtos SET estoque = ? WHERE nome = ?", (novo_estoque, produto_selecionado))
 
@@ -752,7 +690,8 @@ elif menu == "Vendas":
 
             conn.commit()
             st.success(f"Venda finalizada. Total: R$ {total:.2f}")
-# 1. Atualizar a tabela produtos para incluir preco_custo (se ainda não existir)
+
+# Atualizar a tabela produtos para incluir preco_custo, caso ainda não exista
 cursor.execute("PRAGMA table_info(produtos)")
 colunas = [col[1] for col in cursor.fetchall()]
 if "preco_custo" not in colunas:
@@ -762,7 +701,6 @@ if "preco_custo" not in colunas:
 elif menu == "Produtos":
     st.title("📦 Produtos")
 
-    # Formulário para cadastrar novo produto (com preco de custo)
     with st.form("form_produtos"):
         nome = st.text_input("Nome do produto")
         estoque = st.number_input("Estoque", min_value=0, step=1)
@@ -783,7 +721,6 @@ elif menu == "Produtos":
     st.markdown("---")
     st.markdown("### 📋 Estoque de Produtos - Editar Produtos")
 
-    # Listar produtos e permitir editar
     produtos = cursor.execute("SELECT id, nome, estoque, preco_custo, valor FROM produtos").fetchall()
 
     if produtos:
@@ -827,24 +764,27 @@ if menu == "Cadastro Empresa":
             endereco = st.text_input("Endereço", value=empresa[4] if empresa else "")
             email = st.text_input("E-mail", value=empresa[5] if empresa else "")
 
-        # ✅ Agora o botão está dentro do form
         if st.form_submit_button("Salvar dados"):
-            if empresa:
-                cursor.execute(
-                    "UPDATE empresa SET nome=?, cnpj=?, telefone=?, endereco=?, email=? WHERE id = 1",
-                    (nome, cnpj, telefone, endereco, email)
-                )
+            if not nome.strip():
+                st.error("O nome da empresa é obrigatório.")
             else:
-                cursor.execute(
-                    "INSERT INTO empresa (nome, cnpj, telefone, endereco, email) VALUES (?, ?, ?, ?, ?)",
-                    (nome, cnpj, telefone, endereco, email)
-                )
-            conn.commit()
-            st.success("Dados da empresa salvos com sucesso!")
-            st.rerun()
+                if empresa:
+                    cursor.execute(
+                        "UPDATE empresa SET nome=?, cnpj=?, telefone=?, endereco=?, email=? WHERE id = 1",
+                        (nome, cnpj, telefone, endereco, email)
+                    )
+                else:
+                    cursor.execute(
+                        "INSERT INTO empresa (nome, cnpj, telefone, endereco, email) VALUES (?, ?, ?, ?, ?)",
+                        (nome, cnpj, telefone, endereco, email)
+                    )
+                conn.commit()
+                st.success("Dados da empresa salvos com sucesso!")
+                st.experimental_rerun()
+
 
 elif menu == "Vendas":
-    st.title("\U0001F4B3 Vendas")
+    st.title("💳 Vendas")
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
     servicos = cursor.execute("SELECT nome, valor FROM servicos").fetchall()
     produtos = cursor.execute("SELECT nome, valor, estoque FROM produtos").fetchall()
@@ -856,11 +796,13 @@ elif menu == "Vendas":
     with st.form("form_venda"):
         cliente = st.selectbox("Cliente", clientes, format_func=lambda x: x[1])
         forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
+
         opcoes_produto = ["Nenhum"] + [p[0] for p in produtos]
         produto_selecionado = st.selectbox("Produto", opcoes_produto)
         quantidade_prod = 0
         if produto_selecionado != "Nenhum":
             quantidade_prod = st.number_input("Quantidade do produto", min_value=1, step=1, key="qtd_produto")
+
         opcoes_servico = ["Nenhum"] + [s[0] for s in servicos]
         servico_selecionado = st.selectbox("Serviço", opcoes_servico)
         quantidade_serv = 0
@@ -870,6 +812,8 @@ elif menu == "Vendas":
         if st.form_submit_button("Finalizar Venda"):
             total = 0.0
             venda_itens = []
+
+            # Validação e cálculo produtos
             if produto_selecionado != "Nenhum":
                 idx_prod = [p[0] for p in produtos].index(produto_selecionado)
                 estoque_atual = produtos[idx_prod][2]
@@ -879,42 +823,65 @@ elif menu == "Vendas":
                     st.stop()
                 total += valor_prod * quantidade_prod
                 venda_itens.append(("Produto", produto_selecionado, quantidade_prod, valor_prod))
+
+            # Serviços
             if servico_selecionado != "Nenhum":
                 idx_serv = [s[0] for s in servicos].index(servico_selecionado)
                 valor_serv = servicos[idx_serv][1]
                 total += valor_serv * quantidade_serv
                 venda_itens.append(("Serviço", servico_selecionado, quantidade_serv, valor_serv))
+
             if len(venda_itens) == 0:
                 st.error("Selecione pelo menos um produto ou serviço para realizar a venda.")
                 st.stop()
-            cursor.execute("INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)", (cliente[0], str(date.today()), forma_pagamento, total))
+
+            # Inserir venda no banco
+            cursor.execute(
+                "INSERT INTO vendas (cliente_id, data, forma_pagamento, total) VALUES (?, ?, ?, ?)",
+                (cliente[0], str(date.today()), forma_pagamento, total)
+            )
             venda_id = cursor.lastrowid
+
+            # Inserir itens da venda e atualizar estoque se for produto
             for tipo, nome, qtd, preco in venda_itens:
-                cursor.execute("INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)", (venda_id, tipo, nome, qtd, preco))
+                cursor.execute(
+                    "INSERT INTO vendas_itens (venda_id, tipo, nome, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                    (venda_id, tipo, nome, qtd, preco)
+                )
                 if tipo == "Produto":
                     cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE nome = ?", (qtd, nome))
+
             conn.commit()
             st.success(f"Venda finalizada com sucesso! Total: R$ {total:.2f}")
 
+
 elif menu == "Dashboard":
-    st.title("\U0001F4CA Dashboard da Empresa")
+    st.title("📊 Dashboard da Empresa")
     empresa = cursor.execute("SELECT nome FROM empresa WHERE id=1").fetchone()
     if empresa:
         st.subheader(f"Empresa: {empresa[0]}")
     else:
         st.warning("Nenhuma empresa cadastrada. Cadastre no menu 'Cadastro Empresa'.")
+
     total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
     total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas").fetchone()[0]
-    vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status = 'Cancelada'").fetchone()[0]
-    agend_cancelados = cursor.execute("SELECT COUNT(*) FROM agendamentos WHERE status = 'Cancelado'").fetchone()[0]
+
+    # Se não tiver campo status, essas contagens retornam 0
+    vendas_canceladas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE status = 'Cancelada'").fetchone()
+    vendas_canceladas = vendas_canceladas[0] if vendas_canceladas else 0
+
+    agend_cancelados = cursor.execute("SELECT COUNT(*) FROM agendamentos WHERE status = 'Cancelado'").fetchone()
+    agend_cancelados = agend_cancelados[0] if agend_cancelados else 0
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Clientes Cadastrados", total_clientes)
     col2.metric("Vendas Realizadas", total_vendas)
     col3.metric("Vendas Canceladas", vendas_canceladas)
     col4.metric("Agendamentos Cancelados", agend_cancelados)
 
+
 elif menu == "Produtos":
-    st.title("\U0001F4E6 Produtos")
+    st.title("📦 Produtos")
     with st.form("form_produtos"):
         nome = st.text_input("Nome do produto")
         estoque = st.number_input("Estoque", min_value=0, step=1)
@@ -924,10 +891,14 @@ elif menu == "Produtos":
             if not nome.strip():
                 st.error("O nome do produto é obrigatório.")
             else:
-                cursor.execute("INSERT INTO produtos (nome, estoque, preco_custo, valor) VALUES (?, ?, ?, ?)", (nome, estoque, preco_custo, valor))
+                cursor.execute(
+                    "INSERT INTO produtos (nome, estoque, preco_custo, valor) VALUES (?, ?, ?, ?)",
+                    (nome, estoque, preco_custo, valor)
+                )
                 conn.commit()
                 st.success("✅ Produto cadastrado com sucesso.")
-    st.markdown("### \U0001F4CB Estoque de Produtos")
+
+    st.markdown("### 📋 Estoque de Produtos")
     produtos = cursor.execute("SELECT id, nome, estoque, preco_custo, valor FROM produtos").fetchall()
     if produtos:
         for p in produtos:
@@ -937,48 +908,73 @@ elif menu == "Produtos":
                 novo_custo = st.number_input("Editar Preço de Custo", value=p[3] or 0.0, step=0.1, format="%.2f", key=f"custo_{p[0]}")
                 novo_valor = st.number_input("Editar Valor de Venda", value=p[4], step=0.1, format="%.2f", key=f"valor_{p[0]}")
                 if st.button("Salvar Alterações", key=f"salvar_{p[0]}"):
-                    cursor.execute("UPDATE produtos SET nome = ?, estoque = ?, preco_custo = ?, valor = ? WHERE id = ?", (novo_nome, novo_estoque, novo_custo, novo_valor, p[0]))
-                    conn.commit()
-                    st.success("Alterações salvas com sucesso.")
-                    st.experimental_rerun()
+                    if not novo_nome.strip():
+                        st.error("O nome do produto não pode ficar vazio.")
+                    else:
+                        cursor.execute(
+                            "UPDATE produtos SET nome = ?, estoque = ?, preco_custo = ?, valor = ? WHERE id = ?",
+                            (novo_nome, novo_estoque, novo_custo, novo_valor, p[0])
+                        )
+                        conn.commit()
+                        st.success("Alterações salvas com sucesso.")
+                        st.experimental_rerun()
     else:
         st.info("Nenhum produto cadastrado ainda.")
 
+
 elif menu == "Relatórios":
-    st.title("\U0001F4CA Relatórios")
+    st.title("📊 Relatórios")
     empresa = cursor.execute("SELECT nome, cnpj, endereco, telefone, email FROM empresa WHERE id = 1").fetchone()
+
     if empresa:
-        st.markdown(f"### \U0001F3E2 {empresa[0]}")
+        st.markdown(f"### 🏢 {empresa[0]}")
         if empresa[1]: st.markdown(f"**CNPJ:** {empresa[1]}")
         if empresa[2]: st.markdown(f"**Endereço:** {empresa[2]}")
         if empresa[3]: st.markdown(f"**Telefone:** {empresa[3]}")
         if empresa[4]: st.markdown(f"**E-mail:** {empresa[4]}")
         st.markdown("---")
+
     tipo_rel = st.selectbox("Tipo de relatório", ["Vendas", "Despesas"])
     data_ini = st.date_input("Data inicial", value=date(2023, 1, 1))
     data_fim = st.date_input("Data final", value=date.today())
+
     if data_ini > data_fim:
         st.error("Data inicial não pode ser maior que a final.")
         st.stop()
+
     if tipo_rel == "Vendas":
-        query = "SELECT v.data, v.forma_pagamento, v.total, c.nome FROM vendas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE date(v.data) BETWEEN ? AND ?"
+        query = """
+            SELECT v.data, v.forma_pagamento, v.total, c.nome 
+            FROM vendas v 
+            LEFT JOIN clientes c ON v.cliente_id = c.id 
+            WHERE date(v.data) BETWEEN ? AND ?
+            ORDER BY v.data ASC
+        """
         df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
+
         if df.empty:
             st.warning("Nenhum dado de vendas encontrado no período.")
         else:
-            st.markdown("### \U0001F4C4 Relatório de Vendas")
+            st.markdown("### 📄 Relatório de Vendas")
             st.dataframe(df)
             total = df["total"].sum()
             st.success(f"Total vendido no período: R$ {total:.2f}")
             fig = px.bar(df.groupby('data').sum(numeric_only=True).reset_index(), x='data', y='total', title="Vendas por Dia")
             st.plotly_chart(fig)
+
     else:
-        query = "SELECT descricao, valor, data FROM despesas WHERE date(data) BETWEEN ? AND ?"
+        query = """
+            SELECT descricao, valor, data 
+            FROM despesas 
+            WHERE date(data) BETWEEN ? AND ? 
+            ORDER BY data ASC
+        """
         df = pd.read_sql_query(query, conn, params=(str(data_ini), str(data_fim)))
+
         if df.empty:
             st.warning("Nenhum dado de despesas encontrado no período.")
         else:
-            st.markdown("### \U0001F4C4 Relatório de Despesas")
+            st.markdown("### 📄 Relatório de Despesas")
             st.dataframe(df)
             total = df["valor"].sum()
             st.error(f"Total de despesas no período: R$ {total:.2f}")
