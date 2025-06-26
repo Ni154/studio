@@ -35,6 +35,16 @@ def criar_tabelas():
         assinatura BLOB
     )""")
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS avaliacao_cliente (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente_id INTEGER,
+        acne TEXT,
+        alergia TEXT,
+        gestante TEXT,
+        outras_obs TEXT,
+        FOREIGN KEY(cliente_id) REFERENCES clientes(id)
+    )""")
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT,
@@ -112,24 +122,38 @@ def tela_login():
             st.error("Usuário ou senha inválidos")
 
 def menu_lateral():
-    # Tente trocar o caminho do logo para um arquivo existente, ou comente se não tiver logo
+    # Logo com try/except para não travar
     try:
-        st.image("logo.png", width=150)
+        st.sidebar.image("logo.png", width=150)
     except:
-        st.write("Logo aqui")
-    menu = st.sidebar.radio("Menu", [
-        "Iniciar",
-        "Dashboard",
-        "Cadastro Empresa",
-        "Cadastro Cliente",
-        "Cadastro Produtos",
-        "Cadastro Serviços",
-        "Agendamento",
-        "Vendas",
-        "Cancelar Vendas",
-        "Relatórios",
-        "Sair"
-    ])
+        st.sidebar.write("Logo aqui")
+
+    menu = None
+    if st.sidebar.button("Iniciar"):
+        menu = "Iniciar"
+    if st.sidebar.button("Dashboard"):
+        menu = "Dashboard"
+    if st.sidebar.button("Cadastro Empresa"):
+        menu = "Cadastro Empresa"
+    if st.sidebar.button("Cadastro Cliente"):
+        menu = "Cadastro Cliente"
+    if st.sidebar.button("Cadastro Produtos"):
+        menu = "Cadastro Produtos"
+    if st.sidebar.button("Cadastro Serviços"):
+        menu = "Cadastro Serviços"
+    if st.sidebar.button("Agendamento"):
+        menu = "Agendamento"
+    if st.sidebar.button("Vendas"):
+        menu = "Vendas"
+    if st.sidebar.button("Cancelar Vendas"):
+        menu = "Cancelar Vendas"
+    if st.sidebar.button("Relatórios"):
+        menu = "Relatórios"
+    if st.sidebar.button("Sair"):
+        menu = "Sair"
+
+    if menu is None:
+        menu = "Iniciar"
     return menu
 
 def pagina_iniciar():
@@ -187,6 +211,13 @@ def cadastro_cliente():
         nome = st.text_input("Nome Completo")
         telefone = st.text_input("Telefone")
         email = st.text_input("Email")
+
+        st.subheader("Ficha de Avaliação")
+        acne = st.radio("Tem acne?", ["Sim", "Não"])
+        alergia = st.radio("Tem alergia?", ["Sim", "Não"])
+        gestante = st.radio("Está gestante?", ["Sim", "Não"])
+        outras_obs = st.text_area("Outras observações")
+
         st.write("Assinatura (use mouse ou touch para desenhar):")
         canvas_result = st_canvas(
             fill_color="rgba(0, 0, 0, 0)", 
@@ -198,21 +229,33 @@ def cadastro_cliente():
             drawing_mode="freedraw",
             key="canvas"
         )
+
         if st.form_submit_button("Salvar"):
             if not nome:
                 st.error("Nome é obrigatório")
                 return
+            
             assinatura_bytes = None
             if canvas_result.image_data is not None:
                 img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
                 buffer = io.BytesIO()
                 img.save(buffer, format="PNG")
                 assinatura_bytes = buffer.getvalue()
-            cursor.execute("INSERT INTO clientes (nome, telefone, email, assinatura) VALUES (?, ?, ?, ?)",
-                           (nome, telefone, email, assinatura_bytes))
+            
+            # Insere cliente
+            cursor.execute(
+                "INSERT INTO clientes (nome, telefone, email, assinatura) VALUES (?, ?, ?, ?)",
+                (nome, telefone, email, assinatura_bytes)
+            )
+            cliente_id = cursor.lastrowid
+            
+            # Insere avaliação
+            cursor.execute(
+                "INSERT INTO avaliacao_cliente (cliente_id, acne, alergia, gestante, outras_obs) VALUES (?, ?, ?, ?, ?)",
+                (cliente_id, acne, alergia, gestante, outras_obs)
+            )
             conn.commit()
-            st.success("Cliente cadastrado com sucesso!")
-
+            st.success("Cliente cadastrado com ficha de avaliação e assinatura!")
 def cadastro_produtos():
     st.title("Cadastro de Produtos")
     produtos = cursor.execute("SELECT * FROM produtos").fetchall()
@@ -350,51 +393,55 @@ def cancelar_vendas():
         SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
         FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
         WHERE vendas.data BETWEEN ? AND ? AND vendas.cancelada=0
-    """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
+    """, (data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))).fetchall()
     if vendas_cancel:
-        df = pd.DataFrame(vendas_cancel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
-        st.dataframe(df)
-        venda_id = st.number_input("Informe o ID da venda para cancelar", min_value=1, step=1)
-        if st.button("Cancelar Venda"):
-            venda = cursor.execute("SELECT * FROM vendas WHERE id=? AND cancelada=0", (venda_id,)).fetchone()
-            if not venda:
-                st.error("Venda não encontrada ou já cancelada.")
-                return
-            # Atualiza estoque para produtos vendidos
-            itens = cursor.execute("SELECT tipo, item_id, quantidade FROM venda_itens WHERE venda_id=?", (venda_id,)).fetchall()
-            for tipo, item_id, qtd in itens:
-                if tipo == "produto":
-                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
-            cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
-            conn.commit()
-            st.success(f"Venda {venda_id} cancelada e estoque ajustado.")
+        for venda in vendas_cancel:
+            st.write(f"ID: {venda[0]} | Cliente: {venda[1]} | Data: {venda[2]} | Total: R$ {venda[3]:.2f}")
+            if st.button(f"Cancelar Venda {venda[0]}"):
+                # Voltar estoque dos produtos vendidos
+                itens = cursor.execute("SELECT tipo, item_id, quantidade FROM venda_itens WHERE venda_id=?", (venda[0],)).fetchall()
+                for tipo, item_id, qtd in itens:
+                    if tipo == "produto":
+                        cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
+                cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda[0],))
+                conn.commit()
+                st.success(f"Venda {venda[0]} cancelada.")
+                st.experimental_rerun()
     else:
-        st.info("Nenhuma venda encontrada no período selecionado.")
+        st.info("Nenhuma venda encontrada nesse período para cancelar.")
 
 def relatorios():
     st.title("Relatórios")
-    data_inicio = st.date_input("Data Início", value=date.today())
-    data_fim = st.date_input("Data Fim", value=date.today())
+    tipo_rel = st.radio("Tipo de Relatório", ["Diário", "Semanal", "Mensal"])
+    hoje = date.today()
+    if tipo_rel == "Diário":
+        data_inicio = st.date_input("Data", value=hoje)
+        data_fim = data_inicio
+    elif tipo_rel == "Semanal":
+        data_inicio = st.date_input("Data Início", value=hoje)
+        data_fim = st.date_input("Data Fim", value=hoje)
+    else:
+        data_inicio = st.date_input("Data Início", value=hoje.replace(day=1))
+        data_fim = st.date_input("Data Fim", value=hoje)
+    
     vendas_rel = cursor.execute("""
-        SELECT vendas.id, clientes.nome, vendas.data, vendas.total, vendas.cancelada
-        FROM vendas JOIN clientes ON vendas.cliente_id = clientes.id
-        WHERE vendas.data BETWEEN ? AND ?
-        """, (data_inicio.strftime("%Y-%m-%d 00:00:00"), data_fim.strftime("%Y-%m-%d 23:59:59"))).fetchall()
+        SELECT vendas.id, clientes.nome, vendas.data, vendas.total FROM vendas
+        JOIN clientes ON vendas.cliente_id = clientes.id
+        WHERE vendas.data BETWEEN ? AND ? AND vendas.cancelada=0
+    """, (data_inicio.strftime("%Y-%m-%d"), data_fim.strftime("%Y-%m-%d"))).fetchall()
+
     if vendas_rel:
-        df = pd.DataFrame(vendas_rel, columns=["ID", "Cliente", "Data", "Total", "Cancelada"])
+        df = pd.DataFrame(vendas_rel, columns=["ID", "Cliente", "Data", "Total"])
         st.dataframe(df)
-        total_vendas = df[df["Cancelada"] == 0]["Total"].sum()
-        total_canceladas = df[df["Cancelada"] == 1]["Total"].sum()
         fig, ax = plt.subplots()
-        ax.bar(["Vendas Realizadas", "Vendas Canceladas"], [total_vendas, total_canceladas], color=["green", "red"])
-        ax.set_ylabel("Valor (R$)")
-        ax.set_title("Vendas no Período")
+        df.groupby("Data")["Total"].sum().plot(kind="bar", ax=ax)
+        ax.set_title("Total de Vendas por Dia")
+        ax.set_ylabel("Total (R$)")
         st.pyplot(fig)
     else:
-        st.info("Nenhuma venda no período selecionado.")
+        st.info("Nenhuma venda encontrada no período selecionado.")
 
 def main():
-    st.set_page_config(page_title="Studio Depilação", layout="wide")
     if not st.session_state["login"]:
         tela_login()
     else:
