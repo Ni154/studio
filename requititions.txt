@@ -1,6 +1,7 @@
+fpdf
 streamlit
+streamlit-drawable-canvas
+matplotlib
 pandas
-plotly.express
-reportlab
-openpyxl
-plotly
+pillow
+
