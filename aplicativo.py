@@ -166,15 +166,14 @@ else:
 
     st.title(f"🧭 {menu}")
 
-    if menu == "Sair":
-        st.session_state.login = False
-        st.experimental_rerun()
+  if menu == "Sair":
+    st.session_state.login = False
+    st.experimental_rerun()
 
-    elif menu == "Backup":
-        st.subheader("Backup dos Dados")
-        st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
-        fazer_backup()
-# Parte 3 - Tela Início com agendamentos do dia e status, Dashboard com métricas e gráfico
+elif menu == "Backup":
+    st.subheader("Backup dos Dados")
+    st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
+    fazer_backup()
 
 elif menu == "Início":
     st.subheader("📅 Agendamentos do Dia")
@@ -192,7 +191,6 @@ elif menu == "Início":
             st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
     else:
         st.warning("Nenhum agendamento para hoje.")
-
 
 elif menu == "Dashboard":
     st.subheader("📊 Dashboard")
