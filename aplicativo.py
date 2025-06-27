@@ -140,7 +140,7 @@ if not st.session_state.login:
     if st.button("Entrar"):
         if cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario_input, senha_input)).fetchone():
             st.session_state.login = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
 else:
