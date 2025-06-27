@@ -182,7 +182,7 @@ else:
 
         if agendamentos:
             for ag in agendamentos:
-            st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
+                st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
         else:
             st.warning("Nenhum agendamento para hoje.")
 
