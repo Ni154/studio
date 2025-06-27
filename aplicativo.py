@@ -168,7 +168,6 @@ else:
     # Aqui o menu já está definido, então pode usar
     st.title(f"🧭 {menu}")
 
-
 if menu == "Sair":
     st.session_state.login = False
     st.experimental_rerun()
