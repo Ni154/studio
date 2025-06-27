@@ -170,7 +170,7 @@ else:
 
 if menu == "Sair":
     st.session_state.login = False
-    st.experimental_rerun()
+    st.rerun()
 
 elif menu == "Backup":
     st.subheader("Backup dos Dados")
