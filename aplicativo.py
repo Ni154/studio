@@ -358,41 +358,72 @@ elif menu == "Cadastro Serviços":
 elif menu == "Agendamento":
     st.subheader("🗓️ Agendamento")
 
+    # Listar agendamentos existentes para visualizar e reagendar
+    agendamentos = cursor.execute("""
+        SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
+        FROM agendamentos a
+        JOIN clientes c ON a.cliente_id = c.id
+        ORDER BY a.data, a.hora
+    """).fetchall()
+
+    if agendamentos:
+        agendamento_str = [f"ID {a[0]} - {a[1]} - {a[2]} {a[3]} - Serviços: {a[4]} - Status: {a[5]}" for a in agendamentos]
+        selecao = st.selectbox("Selecione um agendamento para reagendar:", agendamento_str)
+
+        idx = agendamento_str.index(selecao)
+        ag = agendamentos[idx]
+
+        st.write(f"Cliente: {ag[1]}")
+        st.write(f"Data atual: {ag[2]} {ag[3]}")
+        st.write(f"Serviços: {ag[4]}")
+        st.write(f"Status atual: {ag[5]}")
+
+        st.markdown("---")
+        st.subheader("Reagendar Agendamento")
+        nova_data = st.date_input("Nova Data", value=datetime.strptime(ag[2], "%Y-%m-%d").date())
+        nova_hora = st.text_input("Nova Hora (ex: 14:30)", value=ag[3])
+
+        if st.button("Confirmar Reagendamento"):
+            # Atualiza data, hora e status
+            status_novo = f"Reagendada para {nova_data.strftime('%d/%m/%Y')} {nova_hora}"
+            cursor.execute("""
+                UPDATE agendamentos
+                SET data = ?, hora = ?, status = ?
+                WHERE id = ?
+            """, (nova_data.strftime("%Y-%m-%d"), nova_hora, status_novo, ag[0]))
+            conn.commit()
+            st.success(f"Agendamento reagendado para {nova_data.strftime('%d/%m/%Y')} {nova_hora}!")
+            st.experimental_rerun()
+
+    else:
+        st.info("Nenhum agendamento encontrado.")
+
+    # Opcional: Criar novo agendamento
+    st.markdown("---")
+    st.subheader("Novo Agendamento")
+
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
     servicos = cursor.execute("SELECT id, nome FROM servicos").fetchall()
+    cliente_dict = {nome: id for id, nome in clientes}
+    servico_dict = {nome: id for id, nome in servicos}
 
-    if not clientes:
-        st.warning("Nenhum cliente cadastrado. Cadastre clientes antes de agendar.")
-    elif not servicos:
-        st.warning("Nenhum serviço cadastrado. Cadastre serviços antes de agendar.")
-    else:
-        cliente_dict = {nome: id for id, nome in clientes}
-        servico_dict = {nome: id for id, nome in servicos}
+    cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
+    data_agendamento = st.date_input("Data")
+    hora_agendamento = st.text_input("Hora (ex: 14:00)")
+    servicos_selecionados = st.multiselect("Serviços", list(servico_dict.keys()))
 
-        with st.form("form_agendamento", clear_on_submit=True):
-            cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
-            data_agendamento = st.date_input("Data")
-            hora_agendada = st.time_input("Hora")
-            servicos_sel = st.multiselect("Serviços (pode selecionar vários)", list(servico_dict.keys()))
-            status = st.selectbox("Status do agendamento", ["Pendente", "Finalizado", "Reagendar"])
-
-            if st.form_submit_button("Agendar"):
-                if not servicos_sel:
-                    st.error("Selecione pelo menos um serviço.")
-                else:
-                    servicos_str = ", ".join(servicos_sel)
-                    cursor.execute("""
-                        INSERT INTO agendamentos (cliente_id, data, hora, servicos, status)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (
-                        cliente_dict[cliente_sel],
-                        data_agendamento.strftime("%Y-%m-%d"),
-                        hora_agendada.strftime("%H:%M"),
-                        servicos_str,
-                        status
-                    ))
-                    conn.commit()
-                    st.success("Agendamento realizado com sucesso!")
+    if st.button("Agendar"):
+        if not servicos_selecionados:
+            st.error("Selecione ao menos um serviço.")
+        else:
+            servicos_str = ", ".join(servicos_selecionados)
+            cursor.execute("""
+                INSERT INTO agendamentos (cliente_id, data, hora, servicos, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (cliente_dict[cliente_sel], data_agendamento.strftime("%Y-%m-%d"), hora_agendamento, servicos_str, "Pendente"))
+            conn.commit()
+            st.success("Agendamento realizado com sucesso!")
+            st.experimental_rerun()
 # Parte 8 - Painel de Vendas com puxar agendamento e nova venda
 
 elif menu == "Vendas":
