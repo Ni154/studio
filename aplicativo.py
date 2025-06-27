@@ -186,10 +186,10 @@ else:
         else:
             st.warning("Nenhum agendamento para hoje.")
 
-elif menu == "Backup":
-    st.subheader("Backup dos Dados")
-    st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
-    fazer_backup()
+    elif menu == "Backup":
+        st.subheader("Backup dos Dados")
+        st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
+        fazer_backup()
 
 elif menu == "Dashboard":
     st.subheader("📊 Dashboard")
