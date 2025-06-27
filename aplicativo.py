@@ -170,21 +170,21 @@ else:
 
     # ✅ Corrigido: agora essa verificação só roda quando o menu existe
     if menu == "Início":
-    st.subheader("📅 Agendamentos do Dia")
-    hoje = date.today().strftime("%d-%m-%Y")
-    agendamentos = cursor.execute("""
+        st.subheader("📅 Agendamentos do Dia")
+        hoje = date.today().strftime("%d-%m-%Y")
+        agendamentos = cursor.execute("""
         SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
         FROM agendamentos a
         JOIN clientes c ON a.cliente_id = c.id
         WHERE a.data = ?
         ORDER BY a.hora
-    """, (hoje,)).fetchall()
+        """, (hoje,)).fetchall()
 
-    if agendamentos:
-        for ag in agendamentos:
+        if agendamentos:
+            for ag in agendamentos:
             st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
-    else:
-        st.warning("Nenhum agendamento para hoje.")
+        else:
+            st.warning("Nenhum agendamento para hoje.")
 
 elif menu == "Backup":
     st.subheader("Backup dos Dados")
