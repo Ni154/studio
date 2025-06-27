@@ -265,7 +265,7 @@ elif menu == "Cadastro Cliente":
                 nascimento = datetime.strptime(nascimento_str, "%Y-%m-%d").date()
             except Exception:
                 st.error("Data de nascimento inválida. Use o formato YYYY-MM-DD.")
-                return
+                st.stop()
 
             assinatura_bytes = None
             if assinatura_canvas.image_data is not None:
