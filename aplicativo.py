@@ -622,9 +622,12 @@ else:
         else:
             st.info("Nenhuma venda encontrada no período selecionado.")
 
-    else menu == "Sair":
-            st.session_state.login = False
-            st.experimental_rerun()
+    elif menu == "Sair":
+        st.session_state.login = False
+        st.experimental_rerun()
+    else:
+        st.warning("Página não encontrada")
+
 # Parte 11 - Finalizações e observações
 
 # Observação: já usamos clear_on_submit=True em todos os forms para limpar automaticamente os campos após o envio.
