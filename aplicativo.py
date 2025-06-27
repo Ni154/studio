@@ -624,7 +624,7 @@ else:
 
     elif menu == "Sair":
         st.session_state.login = False
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.warning("Página não encontrada")
 
