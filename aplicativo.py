@@ -150,6 +150,7 @@ else:
             st.image("logo_studio.png", width=150)
         else:
             st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
+
         # Upload para trocar logo
         st.write("📎 **Importar nova logo:**")
         uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
@@ -164,7 +165,9 @@ else:
             "Cadastro Serviços", "Agendamento", "Vendas", "Cancelar Vendas", "Relatórios", "Backup", "Sair"
         ], key="menu_radio")
 
-st.title(f"🧭 {menu}")
+    # Aqui o menu já está definido, então pode usar
+    st.title(f"🧭 {menu}")
+
 
 if menu == "Sair":
     st.session_state.login = False
