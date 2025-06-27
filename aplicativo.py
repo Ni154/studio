@@ -164,7 +164,7 @@ else:
             "Cadastro Serviços", "Agendamento", "Vendas", "Cancelar Vendas", "Relatórios", "Backup", "Sair"
         ], key="menu_radio")
 
-    st.title(f"🧭 {menu}")
+  st.title(f"🧭 {menu}")
 
   if menu == "Sair":
     st.session_state.login = False
