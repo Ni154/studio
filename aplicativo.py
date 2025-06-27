@@ -179,7 +179,7 @@ elif menu == "Backup":
 
 elif menu == "Início":
     st.subheader("📅 Agendamentos do Dia")
-    hoje = date.today().strftime("%Y-%m-%d")
+    hoje = date.today().strftime("%d-%m-%Y")
     agendamentos = cursor.execute("""
         SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
         FROM agendamentos a
@@ -233,7 +233,7 @@ elif menu == "Cadastro Cliente":
         nome = st.text_input("Nome completo")
         telefone = st.text_input("Telefone")
         # Campo nascimento sem limite, permitindo digitar (usar text_input para datas flexíveis)
-        nascimento_str = st.text_input("Data de nascimento (DD/MM/YYYY)", placeholder="ex: 31/12/1980")
+        nascimento_str = st.text_input("Data de nascimento (DD-MM-YYYY)", placeholder="ex: 31-12-1980")
         instagram = st.text_input("Instagram")
         cantor = st.text_input("Cantor favorito")
         bebida = st.text_input("Bebida favorita")
@@ -264,7 +264,7 @@ elif menu == "Cadastro Cliente":
         if st.form_submit_button("Salvar Cliente"):
             # Validação data nascimento
             try:
-                nascimento = datetime.strptime(nascimento_str, "%Y-%m-%d").date()
+                nascimento = datetime.strptime(nascimento_str, "%d-%m-%Y").date()
             except Exception:
                 st.error("Data de nascimento inválida. Use o formato DD-MM-YYYY.")
                 st.stop()
