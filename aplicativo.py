@@ -169,16 +169,7 @@ else:
     st.title(f"🧭 {menu}")
 
     # ✅ Corrigido: agora essa verificação só roda quando o menu existe
-    if menu == "Sair":
-        st.session_state.login = False
-        st.experimental_rerun()
-
-elif menu == "Backup":
-    st.subheader("Backup dos Dados")
-    st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
-    fazer_backup()
-
-elif menu == "Início":
+    if menu == "Início":
     st.subheader("📅 Agendamentos do Dia")
     hoje = date.today().strftime("%d-%m-%Y")
     agendamentos = cursor.execute("""
@@ -194,6 +185,11 @@ elif menu == "Início":
             st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
     else:
         st.warning("Nenhum agendamento para hoje.")
+
+elif menu == "Backup":
+    st.subheader("Backup dos Dados")
+    st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
+    fazer_backup()
 
 elif menu == "Dashboard":
     st.subheader("📊 Dashboard")
@@ -625,6 +621,10 @@ elif menu == "Relatórios":
         st.pyplot(fig)
     else:
         st.info("Nenhuma venda encontrada no período selecionado.")
+
+else menu == "Sair":
+        st.session_state.login = False
+        st.experimental_rerun()
 # Parte 11 - Finalizações e observações
 
 # Observação: já usamos clear_on_submit=True em todos os forms para limpar automaticamente os campos após o envio.
