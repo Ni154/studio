@@ -231,8 +231,8 @@ elif menu == "Cadastro Cliente":
     with st.form("form_cliente", clear_on_submit=True):
         nome = st.text_input("Nome completo")
         telefone = st.text_input("Telefone")
-        nascimento = st.date_input("Data de nascimento")  # Sem limite de data mínima
-        hora_agendada = st.time_input("Hora agendada")
+        # Campo nascimento sem limite, permitindo digitar (usar text_input para datas flexíveis)
+        nascimento_str = st.text_input("Data de nascimento (YYYY-MM-DD)", placeholder="ex: 1980-12-31")
         instagram = st.text_input("Instagram")
         cantor = st.text_input("Cantor favorito")
         bebida = st.text_input("Bebida favorita")
@@ -257,33 +257,37 @@ elif menu == "Cadastro Cliente":
         autorizacao_imagem = st.radio("Autoriza uso de imagem?", ["SIM", "NÃO"])
 
         st.write("Assinatura Digital")
-        assinatura_canvas = st_canvas(
-            fill_color="rgba(0,0,0,0)", stroke_width=2, stroke_color="#000",
-            background_color="#eee", height=150, width=400, drawing_mode="freedraw"
-        )
+        assinatura_canvas = st_canvas(fill_color="rgba(0,0,0,0)", stroke_width=2, stroke_color="#000",
+                                     background_color="#eee", height=150, width=400, drawing_mode="freedraw")
 
         if st.form_submit_button("Salvar Cliente"):
+            # Validação data nascimento
+            try:
+                nascimento = datetime.strptime(nascimento_str, "%Y-%m-%d").date()
+            except Exception:
+                st.error("Data de nascimento inválida. Use o formato YYYY-MM-DD.")
+                return
+
             assinatura_bytes = None
             if assinatura_canvas.image_data is not None:
                 img = Image.fromarray(assinatura_canvas.image_data.astype("uint8"), mode="RGBA")
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 assinatura_bytes = buf.getvalue()
-
+            
             cursor.execute("""
             INSERT INTO clientes (
-                nome, telefone, nascimento, hora_agendada, instagram, cantor, bebida, epilacao, alergia,
+                nome, telefone, nascimento, instagram, cantor, bebida, epilacao, alergia,
                 qual_alergia, problemas_pele, tratamento, tipo_pele, hidrata, gravida,
                 medicamento, qual_medicamento, uso, diabete, pelos_encravados, cirurgia,
                 foliculite, qual_foliculite, problema_extra, qual_problema, autorizacao_imagem,
                 assinatura
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                nome, telefone, nascimento.strftime("%Y-%m-%d"), hora_agendada.strftime("%H:%M"),
-                instagram, cantor, bebida, epilacao, alergia, qual_alergia, problemas_pele,
-                tratamento, tipo_pele, hidrata, gravida, medicamento, qual_medicamento, uso,
-                diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite, problema_extra,
-                qual_problema, autorizacao_imagem, assinatura_bytes
+                nome, telefone, nascimento.strftime("%Y-%m-%d"), instagram, cantor, bebida, epilacao, alergia,
+                qual_alergia, problemas_pele, tratamento, tipo_pele, hidrata, gravida, medicamento,
+                qual_medicamento, uso, diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite,
+                problema_extra, qual_problema, autorizacao_imagem, assinatura_bytes
             ))
             conn.commit()
             st.success("Cliente cadastrado com sucesso!")
@@ -394,70 +398,127 @@ elif menu == "Agendamento":
 elif menu == "Vendas":
     st.subheader("🛒 Painel de Vendas")
 
+    opcao_venda = st.radio("Selecione a opção:", ["Usar Agendamento", "Nova Venda"])
+
     clientes = cursor.execute("SELECT id, nome FROM clientes").fetchall()
-    produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos").fetchall()
-    servicos = cursor.execute("SELECT id, nome, valor FROM servicos").fetchall()
-
     cliente_dict = {nome: id for id, nome in clientes}
-    produto_dict = {nome: (id, qtd, preco) for id, nome, qtd, preco in produtos}
-    servico_dict = {nome: (id, valor) for id, nome, valor in servicos}
 
-    with st.form("form_venda", clear_on_submit=False):
-        cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
-        
-        # Buscar agendamento pendente para o cliente selecionado
-        cliente_id = cliente_dict[cliente_sel]
+    if opcao_venda == "Usar Agendamento":
+        # Buscar agendamentos com status pendente
         agendamentos = cursor.execute("""
-            SELECT id, servicos, status FROM agendamentos
-            WHERE cliente_id=? AND status='Pendente'
-        """, (cliente_id,)).fetchall()
+            SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
+            FROM agendamentos a
+            JOIN clientes c ON a.cliente_id = c.id
+            WHERE a.status IN ('Pendente', 'Reagendada')
+            ORDER BY a.data, a.hora
+        """).fetchall()
 
-        agendamento_sel = None
-        if agendamentos:
-            agendamento_opcoes = [f"ID {a[0]} - Serviços: {a[1]}" for a in agendamentos]
-            agendamento_escolhido = st.selectbox("Puxar agendamento pendente para venda", ["Nenhum"] + agendamento_opcoes)
-            if agendamento_escolhido != "Nenhum":
-                agendamento_id = int(agendamento_escolhido.split()[1])
-                agendamento_sel = next(a for a in agendamentos if a[0] == agendamento_id)
+        agendamento_str = [f"ID {a[0]} - {a[1]} - {a[2]} {a[3]} - Serviços: {a[4]} - Status: {a[5]}" for a in agendamentos]
+
+        if agendamento_str:
+            selecao = st.selectbox("Selecione um agendamento para finalizar a venda:", agendamento_str)
+            idx = agendamento_str.index(selecao)
+            ag = agendamentos[idx]
+
+            st.write(f"Cliente: {ag[1]}")
+            st.write(f"Data/Hora: {ag[2]} {ag[3]}")
+            st.write(f"Serviços: {ag[4]}")
+            st.write(f"Status atual: {ag[5]}")
+
+            # Parse serviços separados por vírgula para seleção de quantidade
+            serv_list = [s.strip() for s in ag[4].split(",") if s.strip()]
+
+            # Buscar detalhes de serviços para preços e ids
+            servicos_db = cursor.execute("SELECT id, nome, valor FROM servicos").fetchall()
+            servicos_dict = {nome: (id, valor) for id, nome, valor in servicos_db}
+
+            # Seleção de quantidades para cada serviço do agendamento
+            quantidades = {}
+            for serv in serv_list:
+                if serv in servicos_dict:
+                    id_s, valor = servicos_dict[serv]
+                    quantidades[serv] = st.number_input(f"Qtd para {serv}", min_value=1, max_value=100, value=1, key=f"qtd_serv_{id_s}")
+                else:
+                    quantidades[serv] = 1  # serviço não cadastrado na base, qtd 1
+
+            total = sum(quantidades[s] * servicos_dict[s][1] if s in servicos_dict else 0 for s in serv_list)
+            st.info(f"Total: R$ {total:.2f}")
+
+            if st.button("Finalizar Venda"):
+                # Inserir venda
+                cliente_id = cliente_dict[ag[1]]
+                data_venda = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("INSERT INTO vendas (cliente_id, data, total) VALUES (?, ?, ?)", (cliente_id, data_venda, total))
+                venda_id = cursor.lastrowid
+
+                # Inserir itens venda
+                for serv in serv_list:
+                    qtd = quantidades.get(serv, 1)
+                    if serv in servicos_dict:
+                        id_s, valor = servicos_dict[serv]
+                        cursor.execute("INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco) VALUES (?, ?, ?, ?, ?)",
+                                       (venda_id, "servico", id_s, qtd, valor))
+
+                # Atualizar status do agendamento para Finalizada
+                cursor.execute("UPDATE agendamentos SET status='Finalizada' WHERE id=?", (ag[0],))
+                conn.commit()
+                st.success("Venda finalizada e agendamento marcado como Finalizada!")
+
+                # Opção para reagendar ou cancelar agendamento
+                opc = st.radio("Deseja reagendar ou cancelar o agendamento?", ["Nenhum", "Reagendar", "Cancelar"])
+                if opc == "Reagendar":
+                    nova_data = st.date_input("Nova Data")
+                    nova_hora = st.text_input("Nova Hora (ex: 14:00)")
+                    if st.button("Confirmar Reagendamento"):
+                        cursor.execute("UPDATE agendamentos SET data=?, hora=?, status='Reagendada' WHERE id=?", (nova_data.strftime("%Y-%m-%d"), nova_hora, ag[0]))
+                        conn.commit()
+                        st.success("Agendamento reagendado com sucesso!")
+                elif opc == "Cancelar":
+                    if st.button("Confirmar Cancelamento"):
+                        cursor.execute("UPDATE agendamentos SET status='Cancelada' WHERE id=?", (ag[0],))
+                        conn.commit()
+                        st.success("Agendamento cancelado com sucesso!")
+
         else:
-            st.info("Nenhum agendamento pendente para este cliente.")
+            st.info("Nenhum agendamento pendente para venda.")
+
+    else:  # Nova Venda
+        cliente_sel = st.selectbox("Cliente", list(cliente_dict.keys()))
+        produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos").fetchall()
+        servicos = cursor.execute("SELECT id, nome, valor FROM servicos").fetchall()
+        produto_dict = {nome: (id, qtd, preco) for id, nome, qtd, preco in produtos}
+        servico_dict = {nome: (id, valor) for id, nome, valor in servicos}
 
         tipo_venda = st.radio("Tipo de Venda", ["Produtos", "Serviços", "Ambos"])
 
         itens_venda = []
         total = 0.0
 
-        # Se puxou agendamento, já seleciona os serviços dele
-        servicos_selecionados = []
-        if agendamento_sel:
-            servicos_selecionados = [s.strip() for s in agendamento_sel[1].split(",")]
-
         if tipo_venda in ["Produtos", "Ambos"]:
             st.markdown("### Produtos")
-            produtos_selecionados = st.multiselect("Selecionar produtos", list(produto_dict.keys()), key="produtos_venda")
+            produtos_selecionados = st.multiselect("Selecionar produtos", list(produto_dict.keys()))
             for nome in produtos_selecionados:
                 id_p, estoque, preco = produto_dict[nome]
-                qtd = st.number_input(f"Qtd para {nome} (Estoque: {estoque})", min_value=1, max_value=estoque, key=f"prod_{id_p}")
+                qtd = st.number_input(f"Qtd para {nome} (Estoque: {estoque})", min_value=1, max_value=100, value=1, key=f"prod_{id_p}")
                 itens_venda.append(("produto", id_p, qtd, preco))
                 total += preco * qtd
 
         if tipo_venda in ["Serviços", "Ambos"]:
             st.markdown("### Serviços")
-            # Se puxou agendamento, mostrar os serviços selecionados já marcados
-            servicos_a_mostrar = list(servico_dict.keys())
-            servicos_marcados = st.multiselect("Selecionar serviços", servicos_a_mostrar, default=servicos_selecionados, key="servicos_venda")
-            for nome in servicos_marcados:
+            servicos_selecionados = st.multiselect("Selecionar serviços", list(servico_dict.keys()))
+            for nome in servicos_selecionados:
                 id_s, valor = servico_dict[nome]
-                qtd = st.number_input(f"Qtd para {nome}", min_value=1, max_value=10, key=f"serv_{id_s}")
+                qtd = st.number_input(f"Qtd para {nome}", min_value=1, max_value=100, value=1, key=f"serv_{id_s}")
                 itens_venda.append(("servico", id_s, qtd, valor))
                 total += valor * qtd
 
         st.info(f"**Total: R$ {total:.2f}**")
 
-        if st.form_submit_button("Finalizar Venda"):
+        if st.button("Finalizar Venda"):
             if not itens_venda:
                 st.warning("Nenhum item selecionado.")
             else:
+                cliente_id = cliente_dict[cliente_sel]
                 data_venda = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 cursor.execute("INSERT INTO vendas (cliente_id, data, total) VALUES (?, ?, ?)", (cliente_id, data_venda, total))
                 venda_id = cursor.lastrowid
@@ -466,12 +527,8 @@ elif menu == "Vendas":
                                    (venda_id, tipo, item_id, qtd, preco))
                     if tipo == "produto":
                         cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?", (qtd, item_id))
-                # Se finalizou venda de agendamento, atualizar status para 'Finalizado'
-                if agendamento_sel:
-                    cursor.execute("UPDATE agendamentos SET status='Finalizado' WHERE id=?", (agendamento_sel[0],))
                 conn.commit()
                 st.success("Venda registrada com sucesso!")
-
         if st.button("Nova Venda"):
             st.experimental_rerun()
 # Parte 9 - Cancelar Vendas com atualização do estoque e status
