@@ -173,7 +173,6 @@ else:
         st.session_state.login = False
         st.experimental_rerun()
 
-
 elif menu == "Backup":
     st.subheader("Backup dos Dados")
     st.write("Clique no botão abaixo para baixar uma cópia do banco de dados SQLite.")
