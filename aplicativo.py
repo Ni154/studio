@@ -176,7 +176,7 @@ else:
         fazer_backup()
 # Parte 3 - Tela Início com agendamentos do dia e status, Dashboard com métricas e gráfico
 
-    elif menu == "Início":
+elif menu == "Início":
     st.subheader("📅 Agendamentos do Dia")
     hoje = date.today().strftime("%Y-%m-%d")
     agendamentos = cursor.execute("""
@@ -192,6 +192,7 @@ else:
             st.info(f"🕒 {ag[3]} | 👤 {ag[1]} | 💼 Serviços: {ag[4]} | 📌 Status: {ag[5]}")
     else:
         st.warning("Nenhum agendamento para hoje.")
+
 
 elif menu == "Dashboard":
     st.subheader("📊 Dashboard")
