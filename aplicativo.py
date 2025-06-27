@@ -231,7 +231,7 @@ elif menu == "Cadastro Cliente":
         nome = st.text_input("Nome completo")
         telefone = st.text_input("Telefone")
         # Campo nascimento sem limite, permitindo digitar (usar text_input para datas flexíveis)
-        nascimento_str = st.text_input("Data de nascimento (YYYY-MM-DD)", placeholder="ex: 1980-12-31")
+        nascimento_str = st.text_input("Data de nascimento (DD/MM/YYYY)", placeholder="ex: 31/12/1980")
         instagram = st.text_input("Instagram")
         cantor = st.text_input("Cantor favorito")
         bebida = st.text_input("Bebida favorita")
