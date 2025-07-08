@@ -32,7 +32,7 @@ def formatar_data_br(data_iso):
 def fazer_backup():
     with open("studio_depilation.db", "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-        href = f'<a href="data:file/db;base64,{b64}" download="backup_studio_depilation.db">📥 Baixar Backup</a>'
+        href = f'<a href="data:file/db;base64,{b64}" download="backup_studio_depilation.db">📅 Baixar Backup</a>'
         st.markdown(href, unsafe_allow_html=True)
 
 # CRIAÇÃO DAS TABELAS (SE NÃO EXISTIREM)
@@ -159,7 +159,7 @@ else:
             st.image("logo_studio.png", width=150)
         else:
             st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
-        st.write("📎 **Importar nova logo:**")
+        st.write("📌 **Importar nova logo:**")
         uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
         if uploaded_logo:
             with open("logo_studio.png", "wb") as f:
@@ -170,15 +170,15 @@ else:
         menu_opcoes = {
             "Início": "🏠",
             "Dashboard": "📊",
-            "Cadastro Cliente": "🧍",
+            "Cadastro Cliente": "🡭",
             "Cadastro Empresa": "🏢",
             "Cadastro Produtos": "📦",
             "Cadastro Serviços": "💆",
-            "Agendamento": "📅",
+            "Agendamento": "🗕️",
             "Vendas": "💰",
             "Cancelar Vendas": "❌",
             "Relatórios": "📈",
-            "Backup": "💾",
+            "Backup": "📀",
             "Sair": "🚪"
         }
         for opcao, icone in menu_opcoes.items():
@@ -186,11 +186,11 @@ else:
                 st.session_state["menu"] = opcao
 
     menu = st.session_state.get("menu", "Início")
-    st.title(f"🧭 {menu}")
+    st.title(f"🤭 {menu}")
 
     # ----------- MENU: INÍCIO -----------
     if menu == "Início":
-        st.subheader(f"👋 Seja bem-vindo(a) ao Studio Depilação!")
+        st.subheader("👋 Seja bem-vindo(a) ao Studio Depilação!")
         st.markdown("---")
 
         # Calendário visual com streamlit-calendar
@@ -201,12 +201,12 @@ else:
                                     showMonthDropdown=True)
 
         if data_selecionada is None:
-            data_selecionada = date.today()
+            data_selecionada = date.today().strftime("%d/%m/%Y")
 
         # Converter para ISO para consulta no banco
         data_iso = datetime.strptime(data_selecionada, "%d/%m/%Y").strftime("%Y-%m-%d")
 
-        st.markdown(f"### 📅 Agendamentos para {data_selecionada}")
+        st.markdown(f"### 🗓️ Agendamentos para {data_selecionada}")
 
         agendamentos = cursor.execute("""
             SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
