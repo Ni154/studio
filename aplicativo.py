@@ -162,26 +162,52 @@ if not st.session_state.login:
             st.error("Usuário ou senha inválidos")
 else:
     with st.sidebar:
-        if os.path.exists("logo_studio.png"):
-            st.image("logo_studio.png", width=150)
-        else:
-            st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
+    if "logo_img" in st.session_state:
+    st.image(st.session_state["logo_img"], width=150)
+elif os.path.exists("logo_studio.png"):
+    with open("logo_studio.png", "rb") as f:
+        st.session_state["logo_img"] = f.read()
+    st.image(st.session_state["logo_img"], width=150)
+else:
+    st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
 
-        st.write("📎 **Importar nova logo:**")
-        uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
-        if uploaded_logo:
-            with open("logo_studio.png", "wb") as f:
-                f.write(uploaded_logo.read())
-            st.success("Logo atualizada!")
+    st.write("📎 **Importar nova logo:**")
+    uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
+   if uploaded_logo:
+       bytes_logo = uploaded_logo.read()
+       with open("logo_studio.png", "wb") as f:
+           f.write(bytes_logo)
+       st.session_state["logo_img"] = bytes_logo
+       st.success("Logo atualizada!")
 
-        menu_opcoes = [
-            "Início", "Dashboard", "Cadastro Cliente", "Cadastro Empresa", "Cadastro Produtos",
-            "Cadastro Serviços", "Agendamento", "Reagendar", "Cancelar Agendamento",
-            "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
-        ]
-        for opcao in menu_opcoes:
-            if st.button(f"📌 {opcao}"):
-                st.session_state["menu"] = opcao
+    menu_opcoes = [
+        "Início", "Dashboard", "Cadastro Cliente", "Cadastro Empresa", "Cadastro Produtos",
+        "Cadastro Serviços", "Agendamento", "Reagendar", "Cancelar Agendamento",
+        "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
+    ]
+
+    icones_menu = {
+        "Início": "🏠",
+        "Dashboard": "📊",
+        "Cadastro Cliente": "🧍",
+        "Cadastro Empresa": "🏢",
+        "Cadastro Produtos": "📦",
+        "Cadastro Serviços": "💆",
+        "Agendamento": "📅",
+        "Reagendar": "🔄",
+        "Cancelar Agendamento": "❌",
+        "Vendas": "💰",
+        "Cancelar Vendas": "🚫",
+        "Despesas": "💸",
+        "Relatórios": "📈",
+        "Backup": "💾",
+        "Sair": "🔓"
+    }
+
+    for opcao in menu_opcoes:
+        icone = icones_menu.get(opcao, "📌")
+        if st.button(f"{icone} {opcao}"):
+            st.session_state["menu"] = opcao
 
     menu = st.session_state.get("menu", "Início")
     st.title(f"🧭 {menu}")
@@ -839,6 +865,8 @@ else:
 
     # ----------- MENU: SAIR -----------
     elif menu == "Sair":
-        st.session_state.login = False
-        st.session_state.menu = "Início"
-        st.experimental_rerun()
+    st.session_state.login = False
+    if "logo_img" in st.session_state:
+        del st.session_state["logo_img"]
+    st.experimental_rerun()
+
