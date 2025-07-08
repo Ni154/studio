@@ -204,11 +204,7 @@ else:
         "Sair": "🔓"
     }
 
-    for opcao in menu_opcoes:
-        icone = icones_menu.get(opcao, "📌")
-        if st.button(f"{icone} {opcao}"):
-            st.session_state["menu"] = opcao
-
+    
     menu = st.session_state.get("menu", "Início")
     st.title(f"🧭 {menu}")
 
