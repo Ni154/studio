@@ -223,37 +223,37 @@ else:
             st.warning("Nenhum agendamento para este dia.")
 
 # ----------- MENU DASHBOARD -----------
-elif menu == "Dashboard":
-    st.subheader("📊 Dashboard")
-    total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-    total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=0").fetchone()[0]
-    total_produtos = cursor.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
-    total_servicos = cursor.execute("SELECT COUNT(*) FROM servicos").fetchone()[0]
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Clientes Cadastrados", total_clientes)
-    col2.metric("Vendas Realizadas", total_vendas)
-    col3.metric("Produtos Cadastrados", total_produtos)
-    col4.metric("Serviços Cadastrados", total_servicos)
-
-    vendas_data = cursor.execute("""
-        SELECT cancelada, COUNT(*)
-        FROM vendas
-        GROUP BY cancelada
-    """).fetchall()
-
-    canceladas = 0
-    realizadas = 0
-    for c, q in vendas_data:
-        if c == 0:
-            realizadas = q
-        else:
-            canceladas = q
-
-    fig, ax = plt.subplots()
-    ax.bar(["Realizadas", "Canceladas"], [realizadas, canceladas], color=["green", "red"])
-    ax.set_ylabel("Quantidade")
-    st.pyplot(fig)
+    elif menu == "Dashboard":
+        st.subheader("📊 Dashboard")
+        total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
+        total_vendas = cursor.execute("SELECT COUNT(*) FROM vendas WHERE cancelada=0").fetchone()[0]
+        total_produtos = cursor.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
+        total_servicos = cursor.execute("SELECT COUNT(*) FROM servicos").fetchone()[0]
+    
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Clientes Cadastrados", total_clientes)
+        col2.metric("Vendas Realizadas", total_vendas)
+        col3.metric("Produtos Cadastrados", total_produtos)
+        col4.metric("Serviços Cadastrados", total_servicos)
+    
+        vendas_data = cursor.execute("""
+            SELECT cancelada, COUNT(*)
+            FROM vendas
+            GROUP BY cancelada
+        """).fetchall()
+    
+        canceladas = 0
+        realizadas = 0
+        for c, q in vendas_data:
+            if c == 0:
+                realizadas = q
+            else:
+                canceladas = q
+    
+        fig, ax = plt.subplots()
+        ax.bar(["Realizadas", "Canceladas"], [realizadas, canceladas], color=["green", "red"])
+        ax.set_ylabel("Quantidade")
+        st.pyplot(fig)
 
 # ----------- MENU CADASTRO CLIENTE -----------
 elif menu == "Cadastro Cliente":
