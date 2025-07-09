@@ -972,7 +972,7 @@ else:
             st.write("### Tabela de Resultados")
             st.dataframe(df, use_container_width=True)
 
-    elif menu == "Cancelar vendas":
+    elif menu == "Cancelar Vendas":
         st.subheader("❌ Cancelar Vendas")
     
         # Buscar vendas ativas (não canceladas)
