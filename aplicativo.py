@@ -774,57 +774,57 @@ else:
 
     # --- MENU RELATÓRIOS ---
     elif menu == "Relatórios":
-    import pandas as pd
-
-    st.subheader("📈 Relatórios Financeiros")
-
-    # Seleção do período para relatório
-    data_inicio = st.date_input("Data Início", value=pd.to_datetime("today").replace(day=1))
-    data_fim = st.date_input("Data Fim", value=pd.to_datetime("today"))
-
-    if data_fim < data_inicio:
-        st.error("A data final não pode ser anterior à data inicial.")
-    else:
-        data_inicio_str = data_inicio.strftime("%Y-%m-%d")
-        data_fim_str = data_fim.strftime("%Y-%m-%d")
-
-        # Consulta vendas por data
-        vendas_rel = cursor.execute("""
-            SELECT data, SUM(total) FROM vendas
-            WHERE data BETWEEN ? AND ? AND cancelada=0
-            GROUP BY data ORDER BY data
-        """, (data_inicio_str, data_fim_str)).fetchall()
-
-        # Consulta despesas por data
-        despesas_rel = cursor.execute("""
-            SELECT data, SUM(valor) FROM despesas
-            WHERE data BETWEEN ? AND ?
-            GROUP BY data ORDER BY data
-        """, (data_inicio_str, data_fim_str)).fetchall()
-
-        # DataFrames
-        df_vendas = pd.DataFrame(vendas_rel, columns=["Data", "Total_Vendas"])
-        df_despesas = pd.DataFrame(despesas_rel, columns=["Data", "Total_Despesas"])
-
-        # Ajustar datas para datetime
-        df_vendas["Data"] = pd.to_datetime(df_vendas["Data"])
-        df_despesas["Data"] = pd.to_datetime(df_despesas["Data"])
-
-        # Combinar vendas e despesas
-        df = pd.merge(df_vendas, df_despesas, on="Data", how="outer").fillna(0)
-
-        # Calcular lucro
-        df["Lucro"] = df["Total_Vendas"] - df["Total_Despesas"]
-
-        df = df.sort_values("Data")
-
-        # Gráfico de linha
-        st.line_chart(df.set_index("Data")[["Total_Vendas", "Total_Despesas", "Lucro"]])
-
-        # Mostrar tabela formatada
-        df["Data"] = df["Data"].dt.strftime("%d/%m/%Y")
-        st.write("### Tabela de Resultados")
-        st.dataframe(df, use_container_width=True)
+        import pandas as pd
+    
+        st.subheader("📈 Relatórios Financeiros")
+    
+        # Seleção do período para relatório
+        data_inicio = st.date_input("Data Início", value=pd.to_datetime("today").replace(day=1))
+        data_fim = st.date_input("Data Fim", value=pd.to_datetime("today"))
+    
+        if data_fim < data_inicio:
+            st.error("A data final não pode ser anterior à data inicial.")
+        else:
+            data_inicio_str = data_inicio.strftime("%Y-%m-%d")
+            data_fim_str = data_fim.strftime("%Y-%m-%d")
+    
+            # Consulta vendas por data
+            vendas_rel = cursor.execute("""
+                SELECT data, SUM(total) FROM vendas
+                WHERE data BETWEEN ? AND ? AND cancelada=0
+                GROUP BY data ORDER BY data
+            """, (data_inicio_str, data_fim_str)).fetchall()
+    
+            # Consulta despesas por data
+            despesas_rel = cursor.execute("""
+                SELECT data, SUM(valor) FROM despesas
+                WHERE data BETWEEN ? AND ?
+                GROUP BY data ORDER BY data
+            """, (data_inicio_str, data_fim_str)).fetchall()
+    
+            # DataFrames
+            df_vendas = pd.DataFrame(vendas_rel, columns=["Data", "Total_Vendas"])
+            df_despesas = pd.DataFrame(despesas_rel, columns=["Data", "Total_Despesas"])
+    
+            # Ajustar datas para datetime
+            df_vendas["Data"] = pd.to_datetime(df_vendas["Data"])
+            df_despesas["Data"] = pd.to_datetime(df_despesas["Data"])
+    
+            # Combinar vendas e despesas
+            df = pd.merge(df_vendas, df_despesas, on="Data", how="outer").fillna(0)
+    
+            # Calcular lucro
+            df["Lucro"] = df["Total_Vendas"] - df["Total_Despesas"]
+    
+            df = df.sort_values("Data")
+    
+            # Gráfico de linha
+            st.line_chart(df.set_index("Data")[["Total_Vendas", "Total_Despesas", "Lucro"]])
+    
+            # Mostrar tabela formatada
+            df["Data"] = df["Data"].dt.strftime("%d/%m/%Y")
+            st.write("### Tabela de Resultados")
+            st.dataframe(df, use_container_width=True)
 
 
     # --- MENU BACKUP ---
