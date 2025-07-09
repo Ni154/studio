@@ -32,7 +32,23 @@ def fazer_backup():
         b64 = base64.b64encode(f.read()).decode()
         href = f'<a href="data:file/db;base64,{b64}" download="backup_studio_depilation.db">📥 Baixar Backup</a>'
         st.markdown(href, unsafe_allow_html=True)
+def cancelar_venda(venda_id):
+    if not venda_id:
+        st.error("Nenhuma venda selecionada para cancelar.")
+        return
 
+    cursor.execute("UPDATE vendas SET cancelada = 1 WHERE id = ?", (venda_id,))
+
+    itens_produtos = cursor.execute(
+        "SELECT item_id, quantidade FROM venda_itens WHERE venda_id = ? AND tipo = 'produto'", (venda_id,)
+    ).fetchall()
+
+    for item_id, quantidade in itens_produtos:
+        cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id = ?", (quantidade, item_id))
+
+    conn.commit()
+    st.success(f"Venda {venda_id} cancelada com sucesso!")
+    
 # CRIAÇÃO DAS TABELAS
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -987,7 +1003,6 @@ else:
         if not vendas_ativas:
             st.info("Nenhuma venda ativa para cancelar.")
         else:
-            # Criar dicionário para selectbox (descrição -> id)
             opcoes_vendas = {
                 f"ID: {v[0]} | Cliente: {v[1]} | Data: {v[2]} | Total: R$ {v[3]:.2f}": v[0]
                 for v in vendas_ativas
@@ -1004,25 +1019,7 @@ else:
                 if st.button("Cancelar Venda"):
                     cancelar_venda(venda_id)
                     st.rerun()
-    
-    
-    def cancelar_venda(venda_id):
-        if not venda_id:
-            st.error("Nenhuma venda selecionada para cancelar.")
-            return
-    
-        cursor.execute("UPDATE vendas SET cancelada = 1 WHERE id = ?", (venda_id,))
-    
-        itens_produtos = cursor.execute(
-            "SELECT item_id, quantidade FROM venda_itens WHERE venda_id = ? AND tipo = 'produto'", (venda_id,)
-        ).fetchall()
-    
-        for item_id, quantidade in itens_produtos:
-            cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id = ?", (quantidade, item_id))
-    
-        conn.commit()
-        st.success(f"Venda {venda_id} cancelada com sucesso!")
-
+                
     # --- MENU BACKUP ---
     elif menu == "Backup":
         st.subheader("💾 Backup do Banco de Dados")
