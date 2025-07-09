@@ -1032,6 +1032,59 @@ else:
             st.write("### Tabela de Resultados")
             st.dataframe(df, use_container_width=True)
 
+    elif menu == "Cancelar vendas":
+        st.subheader("❌ Cancelar Vendas")
+
+        # Buscar vendas ativas (não canceladas)
+        vendas_ativas = cursor.execute("""
+            SELECT v.id, c.nome, v.data, v.total 
+            FROM vendas v
+            JOIN clientes c ON v.cliente_id = c.id
+            WHERE v.cancelada = 0
+            ORDER BY v.data DESC
+        """).fetchall()
+    
+        if not vendas_ativas:
+            st.info("Nenhuma venda ativa para cancelar.")
+        else:
+            # Criar dicionário para selectbox (descrição -> id)
+            opcoes_vendas = {
+                f"ID: {v[0]} | Cliente: {v[1]} | Data: {v[2]} | Total: R$ {v[3]:.2f}": v[0]
+                for v in vendas_ativas
+            }
+    
+            venda_selecionada = st.selectbox(
+                "Selecione a venda para cancelar",
+                [""] + list(opcoes_vendas.keys())
+            )
+    
+            if venda_selecionada:
+                venda_id = opcoes_vendas[venda_selecionada]
+    
+                if st.button("Cancelar Venda"):
+                    cancelar_venda(venda_id)
+                    st.rerun()
+    
+    
+    def cancelar_venda(venda_id):
+        if not venda_id:
+            st.error("Nenhuma venda selecionada para cancelar.")
+            return
+    
+        # Atualiza o status para cancelado
+        cursor.execute("UPDATE vendas SET cancelada = 1 WHERE id = ?", (venda_id,))
+    
+        # Repor estoque dos produtos vendidos
+        itens_produtos = cursor.execute(
+            "SELECT item_id, quantidade FROM venda_itens WHERE venda_id = ? AND tipo = 'produto'", (venda_id,)
+        ).fetchall()
+    
+        for item_id, quantidade in itens_produtos:
+            cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id = ?", (quantidade, item_id))
+    
+        conn.commit()
+        st.success(f"Venda {venda_id} cancelada com sucesso!")
+
 
     # --- MENU BACKUP ---
     elif menu == "Backup":
