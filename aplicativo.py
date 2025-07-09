@@ -725,256 +725,196 @@ else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
 
     elif menu == "Vendas":
-        st.subheader("💰 Registrar Venda")
-
-        # Buscar dados do banco
+        st.subheader("💰 Sistema de Vendas")
+    
+        opcao_venda = st.radio("Selecione o tipo de venda:", ["Venda por Agendamento", "Nova Venda"])
+    
+        # Carrega clientes para os dois casos
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
         clientes_dict = {c[1]: c[0] for c in clientes}
     
-        produtos = cursor.execute("SELECT id, nome, preco_venda FROM produtos ORDER BY nome").fetchall()
-        produtos_dict = {p[1]: (p[0], p[2]) for p in produtos}
+        # Carrega produtos e serviços
+        produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos WHERE quantidade > 0 ORDER BY nome").fetchall()
+        produtos_dict = {p[1]: {"id": p[0], "quantidade": p[2], "preco": p[3]} for p in produtos}
     
-        servicos = cursor.execute("SELECT id, nome, valor FROM servicos ORDER BY nome").fetchall()
-        servicos_dict = {s[1]: (s[0], s[2]) for s in servicos}
+        servicos = cursor.execute("SELECT id, nome, valor FROM servicos WHERE quantidade > 0 ORDER BY nome").fetchall()
+        servicos_dict = {s[1]: {"id": s[0], "valor": s[2]} for s in servicos}
     
-        st.write("### Escolha o tipo de venda:")
-        tipo_venda = st.radio("Tipo de venda", ["Venda por Agendamento", "Nova Venda"])
-    
-        if tipo_venda == "Venda por Agendamento":
-            # Seletor de agendamento do dia
-            data_venda = st.date_input("Data da venda", date.today())
-            data_venda_str = data_venda.strftime("%Y-%m-%d")
-    
+        if opcao_venda == "Venda por Agendamento":
+            # Busca agendamentos agendados
             agendamentos = cursor.execute("""
-                SELECT a.id, c.nome, a.hora, a.servicos, a.cliente_id
+                SELECT a.id, c.nome, a.data, a.hora, a.servicos
                 FROM agendamentos a
                 JOIN clientes c ON a.cliente_id = c.id
-                WHERE a.data = ? AND a.status = 'Agendado'
-            """, (data_venda_str,)).fetchall()
+                WHERE a.status = 'Agendado'
+                ORDER BY a.data, a.hora
+            """).fetchall()
     
-            agendamento_opcoes = {f"{a[1]} - {a[2]} - {a[3]}": a for a in agendamentos}
-            agendamento_selecionado = st.selectbox("Selecionar agendamento", [""] + list(agendamento_opcoes.keys()))
+            agend_dict = {f"{formatar_data_br(a[2])} {a[3]} - {a[1]}": a for a in agendamentos}
     
+            agendamento_selecionado = st.selectbox("Selecione o agendamento", [""] + list(agend_dict.keys()))
             if agendamento_selecionado:
-                ag_info = agendamento_opcoes[agendamento_selecionado]
-                agendamento_id = ag_info[0]
-                cliente_nome = ag_info[1]
-                cliente_id = ag_info[4]
-                servicos_agendados = ag_info[3].split(", ") if ag_info[3] else []
-                
-                st.markdown(f"**Cliente:** {cliente_nome}")
+                ag = agend_dict[agendamento_selecionado]
+                st.write(f"Cliente: {ag[1]}")
+                st.write(f"Data: {formatar_data_br(ag[2])}")
+                st.write(f"Hora: {ag[3]}")
+                st.write(f"Serviços agendados: {ag[4]}")
     
-                # Controle dos serviços agendados selecionados
-                servicos_selecionados = st.multiselect(
-                    "Serviços agendados (pode remover os que não serão vendidos):", 
-                    servicos_agendados,
-                    default=servicos_agendados
-                )
-                
-                # Produtos adicionados (inicialmente vazio)
-                produtos_selecionados = []
-                qtd_produtos = {}
+                # Serviços do agendamento (string separada por vírgula)
+                servicos_agendados = [s.strip() for s in ag[4].split(",") if s.strip()]
+                # Mapear nomes para ids e valores
+                itens_venda = []
+                for serv_nome in servicos_agendados:
+                    if serv_nome in servicos_dict:
+                        itens_venda.append({
+                            "tipo": "servico",
+                            "id": servicos_dict[serv_nome]["id"],
+                            "nome": serv_nome,
+                            "quantidade": 1,
+                            "preco": servicos_dict[serv_nome]["valor"]
+                        })
+                    else:
+                        st.warning(f"Serviço '{serv_nome}' não encontrado no cadastro.")
     
-                # Controle para adicionar produtos
+                # Permitir adicionar produtos e serviços extras
                 st.markdown("### Adicionar Produtos")
-                produto_para_adicionar = st.selectbox("Produto", [""] + list(produtos_dict.keys()))
-                if produto_para_adicionar:
-                    qtd = st.number_input("Quantidade", min_value=1, value=1, key=f"qtd_add_{produto_para_adicionar}")
-                    if st.button("Adicionar produto"):
-                        # Armazenar na sessão
-                        if "produtos_adicionados" not in st.session_state:
-                            st.session_state.produtos_adicionados = {}
-                        if produto_para_adicionar in st.session_state.produtos_adicionados:
-                            st.session_state.produtos_adicionados[produto_para_adicionar] += qtd
-                        else:
-                            st.session_state.produtos_adicionados[produto_para_adicionar] = qtd
+                produtos_selecionados = st.multiselect("Produtos", list(produtos_dict.keys()))
+                for p_nome in produtos_selecionados:
+                    itens_venda.append({
+                        "tipo": "produto",
+                        "id": produtos_dict[p_nome]["id"],
+                        "nome": p_nome,
+                        "quantidade": 1,
+                        "preco": produtos_dict[p_nome]["preco"]
+                    })
     
-                # Mostrar produtos adicionados com opção de remover
-                if "produtos_adicionados" in st.session_state and st.session_state.produtos_adicionados:
-                    st.markdown("#### Produtos adicionados:")
-                    remover_produto = st.selectbox("Selecione produto para remover", [""] + list(st.session_state.produtos_adicionados.keys()))
-                    if remover_produto:
-                        if st.button("Remover produto"):
-                            del st.session_state.produtos_adicionados[remover_produto]
+                st.markdown("### Adicionar Serviços")
+                servicos_selecionados = st.multiselect("Serviços", list(servicos_dict.keys()))
+                for s_nome in servicos_selecionados:
+                    # Evitar duplicar serviços já no agendamento
+                    if s_nome not in servicos_agendados:
+                        itens_venda.append({
+                            "tipo": "servico",
+                            "id": servicos_dict[s_nome]["id"],
+                            "nome": s_nome,
+                            "quantidade": 1,
+                            "preco": servicos_dict[s_nome]["valor"]
+                        })
     
-                # Calcular total
-                total = 0
+                # Mostrar itens para ajustar quantidade
+                st.markdown("### Itens da Venda")
+                for i, item in enumerate(itens_venda):
+                    qtd = st.number_input(f"Quantidade - {item['nome']} ({item['tipo']})", min_value=1, step=1, value=item['quantidade'], key=f"qtd_{i}")
+                    itens_venda[i]["quantidade"] = qtd
     
-                # Serviços agendados (consultar preço pelo nome)
-                if servicos_selecionados:
-                    st.markdown("### Serviços")
-                    for s_nome in servicos_selecionados:
-                        if s_nome in servicos_dict:
-                            preco = servicos_dict[s_nome][1]
-                            st.write(f"{s_nome} — R$ {preco:.2f}")
-                            total += preco
-                        else:
-                            st.write(f"{s_nome} — preço não encontrado")
+                # Cálculo total
+                total = sum(item["quantidade"] * item["preco"] for item in itens_venda)
+                st.markdown(f"### Total: R$ {total:.2f}")
     
-                # Produtos adicionados
-                if "produtos_adicionados" in st.session_state:
-                    st.markdown("### Produtos")
-                    for p_nome, qtd in st.session_state.produtos_adicionados.items():
-                        pid, preco = produtos_dict[p_nome]
-                        subtotal = preco * qtd
-                        st.write(f"{p_nome} — Quantidade: {qtd} — Subtotal: R$ {subtotal:.2f}")
-                        total += subtotal
-    
-                st.markdown(f"## Total: R$ {total:.2f}")
-    
-                forma_pagamento = st.radio("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"], horizontal=True)
+                # Forma de pagamento
+                forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"])
     
                 if st.button("Finalizar Venda"):
-                    if not servicos_selecionados and ("produtos_adicionados" not in st.session_state or not st.session_state.produtos_adicionados):
-                        st.error("Selecione ao menos um serviço ou produto para finalizar.")
+                    if total == 0:
+                        st.error("Adicione ao menos um item para finalizar a venda.")
                     else:
-                        # Inserir venda
+                        cliente_id = ag[1]  # cliente id?
+                        cliente_id = cursor.execute("SELECT cliente_id FROM agendamentos WHERE id=?", (ag[0],)).fetchone()[0]
+    
+                        data_venda = date.today().strftime("%Y-%m-%d")
                         cursor.execute("""
-                            INSERT INTO vendas (cliente_id, data, total, cancelada, forma_pagamento)
-                            VALUES (?, ?, ?, 0, ?)
-                        """, (cliente_id, data_venda_str, total, forma_pagamento))
-                        conn.commit()
+                            INSERT INTO vendas (cliente_id, data, total, forma_pagamento)
+                            VALUES (?, ?, ?, ?)
+                        """, (cliente_id, data_venda, total, forma_pagamento))
                         venda_id = cursor.lastrowid
     
-                        # Inserir itens serviços
-                        for s_nome in servicos_selecionados:
-                            sid, preco = servicos_dict.get(s_nome, (None, 0))
-                            if sid:
-                                cursor.execute("""
-                                    INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                                    VALUES (?, 'servico', ?, 1, ?)
-                                """, (venda_id, sid, preco))
+                        # Inserir itens
+                        for item in itens_venda:
+                            cursor.execute("""
+                                INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (venda_id, item["tipo"], item["id"], item["quantidade"], item["preco"]))
     
-                        # Inserir itens produtos
-                        if "produtos_adicionados" in st.session_state:
-                            for p_nome, qtd in st.session_state.produtos_adicionados.items():
-                                pid, preco = produtos_dict[p_nome]
+                            # Atualizar estoque de produtos (se for produto)
+                            if item["tipo"] == "produto":
                                 cursor.execute("""
-                                    INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                                    VALUES (?, 'produto', ?, ?, ?)
-                                """, (venda_id, pid, qtd, preco))
-                                cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id=?", (qtd, pid))
+                                    UPDATE produtos SET quantidade = quantidade - ? WHERE id=?
+                                """, (item["quantidade"], item["id"]))
     
-                        # Finalizar agendamento
-                        cursor.execute("UPDATE agendamentos SET status='Finalizado' WHERE id=?", (agendamento_id,))
+                        # Atualizar status do agendamento
+                        cursor.execute("UPDATE agendamentos SET status='Finalizado' WHERE id=?", (ag[0],))
+    
                         conn.commit()
-    
-                        # Limpar sessão de produtos adicionados
-                        st.session_state.produtos_adicionados = {}
-    
-                        st.success(f"Venda finalizada com total R$ {total:.2f} - {forma_pagamento}")
+                        st.success("Venda por agendamento finalizada com sucesso!")
                         st.rerun()
     
-            else:
-                st.info("Selecione um agendamento para continuar.")
+        else:
+            # NOVA VENDA
+            st.write("### Nova Venda")
     
-        elif tipo_venda == "Nova Venda":
-            # Selecionar cliente
-            cliente_nome = st.selectbox("Selecione o cliente", [""] + list(clientes_dict.keys()))
-            cliente_id = clientes_dict.get(cliente_nome) if cliente_nome else None
+            cliente_selecionado = st.selectbox("Selecione o cliente", [""] + list(clientes_dict.keys()))
+            if not cliente_selecionado:
+                st.warning("Selecione um cliente para continuar.")
+                st.stop()
+            cliente_id = clientes_dict[cliente_selecionado]
     
-            # Produtos e serviços adicionados em sessão
-            if "produtos_adicionados_nv" not in st.session_state:
-                st.session_state.produtos_adicionados_nv = {}
-            if "servicos_adicionados_nv" not in st.session_state:
-                st.session_state.servicos_adicionados_nv = []
+            produtos_selecionados = st.multiselect("Produtos", list(produtos_dict.keys()))
+            servicos_selecionados = st.multiselect("Serviços", list(servicos_dict.keys()))
     
-            # Adicionar produto
-            st.markdown("### Adicionar Produtos")
-            produto_nv = st.selectbox("Produto", [""] + list(produtos_dict.keys()), key="produto_nv")
-            if produto_nv:
-                qtd_nv = st.number_input("Quantidade", min_value=1, value=1, key="qtd_nv")
-                if st.button("Adicionar produto", key="add_produto_nv"):
-                    if produto_nv in st.session_state.produtos_adicionados_nv:
-                        st.session_state.produtos_adicionados_nv[produto_nv] += qtd_nv
-                    else:
-                        st.session_state.produtos_adicionados_nv[produto_nv] = qtd_nv
+            itens_venda = []
     
-            # Adicionar serviço
-            st.markdown("### Adicionar Serviços")
-            servico_nv = st.selectbox("Serviço", [""] + list(servicos_dict.keys()), key="servico_nv")
-            if servico_nv:
-                if st.button("Adicionar serviço", key="add_servico_nv"):
-                    if servico_nv not in st.session_state.servicos_adicionados_nv:
-                        st.session_state.servicos_adicionados_nv.append(servico_nv)
+            for p_nome in produtos_selecionados:
+                itens_venda.append({
+                    "tipo": "produto",
+                    "id": produtos_dict[p_nome]["id"],
+                    "nome": p_nome,
+                    "quantidade": 1,
+                    "preco": produtos_dict[p_nome]["preco"]
+                })
     
-            # Mostrar produtos adicionados com remover
-            if st.session_state.produtos_adicionados_nv:
-                st.markdown("#### Produtos adicionados:")
-                remover_p_nv = st.selectbox("Selecionar produto para remover", [""] + list(st.session_state.produtos_adicionados_nv.keys()), key="remover_p_nv")
-                if remover_p_nv and st.button("Remover produto", key="remover_p_btn_nv"):
-                    del st.session_state.produtos_adicionados_nv[remover_p_nv]
+            for s_nome in servicos_selecionados:
+                itens_venda.append({
+                    "tipo": "servico",
+                    "id": servicos_dict[s_nome]["id"],
+                    "nome": s_nome,
+                    "quantidade": 1,
+                    "preco": servicos_dict[s_nome]["valor"]
+                })
     
-            # Mostrar serviços adicionados com remover
-            if st.session_state.servicos_adicionados_nv:
-                st.markdown("#### Serviços adicionados:")
-                remover_s_nv = st.selectbox("Selecionar serviço para remover", [""] + st.session_state.servicos_adicionados_nv, key="remover_s_nv")
-                if remover_s_nv and st.button("Remover serviço", key="remover_s_btn_nv"):
-                    st.session_state.servicos_adicionados_nv.remove(remover_s_nv)
+            # Ajustar quantidade e mostrar total
+            for i, item in enumerate(itens_venda):
+                qtd = st.number_input(f"Quantidade - {item['nome']} ({item['tipo']})", min_value=1, step=1, value=item['quantidade'], key=f"qtd_n_{i}")
+                itens_venda[i]["quantidade"] = qtd
     
-            # Calcular total
-            total_nv = 0
-            if cliente_id:
-                st.markdown(f"**Cliente selecionado:** {cliente_nome}")
-            else:
-                st.info("Selecione um cliente para continuar.")
+            total = sum(item["quantidade"] * item["preco"] for item in itens_venda)
+            st.markdown(f"### Total: R$ {total:.2f}")
     
-            st.markdown("### Itens selecionados")
+            forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"], key="fp_nova_venda")
     
-            # Produtos
-            if st.session_state.produtos_adicionados_nv:
-                for p_nome, qtd in st.session_state.produtos_adicionados_nv.items():
-                    pid, preco = produtos_dict[p_nome]
-                    subtotal = preco * qtd
-                    st.write(f"{p_nome} — Quantidade: {qtd} — Subtotal: R$ {subtotal:.2f}")
-                    total_nv += subtotal
-    
-            # Serviços
-            if st.session_state.servicos_adicionados_nv:
-                for s_nome in st.session_state.servicos_adicionados_nv:
-                    sid, preco = servicos_dict[s_nome]
-                    st.write(f"{s_nome} — R$ {preco:.2f}")
-                    total_nv += preco
-    
-            st.markdown(f"## Total: R$ {total_nv:.2f}")
-    
-            forma_pagamento_nv = st.radio("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"], horizontal=True)
-    
-            if st.button("Finalizar Venda", key="finalizar_nv"):
-                if not cliente_id:
-                    st.error("Selecione um cliente para finalizar a venda.")
-                elif not st.session_state.produtos_adicionados_nv and not st.session_state.servicos_adicionados_nv:
-                    st.error("Adicione ao menos um produto ou serviço.")
+            if st.button("Finalizar Venda Nova"):
+                if total == 0:
+                    st.error("Adicione ao menos um item para finalizar a venda.")
                 else:
+                    data_venda = date.today().strftime("%Y-%m-%d")
                     cursor.execute("""
-                        INSERT INTO vendas (cliente_id, data, total, cancelada, forma_pagamento)
-                        VALUES (?, ?, ?, 0, ?)
-                    """, (cliente_id, date.today().strftime("%Y-%m-%d"), total_nv, forma_pagamento_nv))
-                    conn.commit()
+                        INSERT INTO vendas (cliente_id, data, total, forma_pagamento)
+                        VALUES (?, ?, ?, ?)
+                    """, (cliente_id, data_venda, total, forma_pagamento))
                     venda_id = cursor.lastrowid
     
-                    for p_nome, qtd in st.session_state.produtos_adicionados_nv.items():
-                        pid, preco = produtos_dict[p_nome]
+                    for item in itens_venda:
                         cursor.execute("""
                             INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                            VALUES (?, 'produto', ?, ?, ?)
-                        """, (venda_id, pid, qtd, preco))
-                        cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id=?", (qtd, pid))
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (venda_id, item["tipo"], item["id"], item["quantidade"], item["preco"]))
     
-                    for s_nome in st.session_state.servicos_adicionados_nv:
-                        sid, preco = servicos_dict[s_nome]
-                        cursor.execute("""
-                            INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                            VALUES (?, 'servico', ?, 1, ?)
-                        """, (venda_id, sid, preco))
+                        if item["tipo"] == "produto":
+                            cursor.execute("""
+                                UPDATE produtos SET quantidade = quantidade - ? WHERE id=?
+                            """, (item["quantidade"], item["id"]))
     
                     conn.commit()
-    
-                    # Limpar sessões
-                    st.session_state.produtos_adicionados_nv = {}
-                    st.session_state.servicos_adicionados_nv = []
-    
-                    st.success(f"Venda finalizada com total R$ {total_nv:.2f} - {forma_pagamento_nv}")
+                    st.success("Venda finalizada com sucesso!")
                     st.rerun()
 
 
