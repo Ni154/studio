@@ -179,8 +179,7 @@ else:
 
         menu_opcoes = [
             "Início", "Dashboard", "Cadastro Cliente", "Cadastro Empresa", "Cadastro Produtos",
-            "Cadastro Serviços", "Agendamento", "Reagendar", "Cancelar Agendamento",
-            "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
+            "Cadastro Serviços", "Agendamento", "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
         ]
 
         icones_menu = {
@@ -191,8 +190,6 @@ else:
             "Cadastro Produtos": "📦",
             "Cadastro Serviços": "💆",
             "Agendamento": "📅",
-            "Reagendar": "🔄",
-            "Cancelar Agendamento": "❌",
             "Vendas": "💰",
             "Cancelar Vendas": "🚫",
             "Despesas": "💸",
@@ -596,68 +593,7 @@ else:
         else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
 
-    # --- MENU REAGENDAR ---
-    elif menu == "Reagendar":
-        st.subheader("🔄 Reagendar Agendamento")
-        agendamento_id = st.session_state.get("reagendar_id", None)
-        if agendamento_id is None:
-            st.error("Nenhum agendamento selecionado para reagendar.")
-            st.stop()
-
-        ag = cursor.execute("""
-            SELECT a.id, c.nome, a.data, a.hora, a.servicos
-            FROM agendamentos a
-            JOIN clientes c ON a.cliente_id = c.id
-            WHERE a.id=?
-        """, (agendamento_id,)).fetchone()
-
-        st.write(f"Cliente: {ag[1]}")
-        st.write(f"Serviços: {ag[4]}")
-        nova_data = st.date_input("Nova data", datetime.strptime(ag[2], "%Y-%m-%d").date())
-        nova_hora = st.text_input("Nova hora", ag[3])
-
-        if st.button("Confirmar Reagendamento"):
-            cursor.execute("""
-                UPDATE agendamentos SET data=?, hora=?
-                WHERE id=?
-            """, (nova_data.strftime("%Y-%m-%d"), nova_hora, agendamento_id))
-            conn.commit()
-            st.success("Agendamento reagendado com sucesso!")
-            del st.session_state["reagendar_id"]
-            st.session_state["menu"] = "Agendamento"
-            st.rerun()
-
-    # --- MENU CANCELAR AGENDAMENTO ---
-    elif menu == "Cancelar Agendamento":
-        st.subheader("❌ Cancelar Agendamento")
-        cancelar_id = st.session_state.get("cancelar_id", None)
-        if cancelar_id is None:
-            st.error("Nenhum agendamento selecionado para cancelar.")
-            st.stop()
-
-        ag = cursor.execute("""
-            SELECT a.id, c.nome, a.data, a.hora, a.servicos
-            FROM agendamentos a
-            JOIN clientes c ON a.cliente_id = c.id
-            WHERE a.id=?
-        """, (cancelar_id,)).fetchone()
-
-        st.write(f"Cliente: {ag[1]}")
-        st.write(f"Data: {formatar_data_br(ag[2])}")
-        st.write(f"Hora: {ag[3]}")
-        st.write(f"Serviços: {ag[4]}")
-
-        if st.button("Confirmar Cancelamento"):
-            cursor.execute("""
-                UPDATE agendamentos SET status='Cancelado'
-                WHERE id=?
-            """, (cancelar_id,))
-            conn.commit()
-            st.success("Agendamento cancelado com sucesso!")
-            del st.session_state["cancelar_id"]
-            st.session_state["menu"] = "Agendamento"
-            st.rerun()
-
+   
     # --- MENU VENDAS ---
     elif menu == "Vendas":
         st.subheader("💰 Registrar Venda")
