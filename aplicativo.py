@@ -154,7 +154,7 @@ if not st.session_state.login:
     if st.button("Entrar"):
         if cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (usuario_input, senha_input)).fetchone():
             st.session_state.login = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
 else:
@@ -420,7 +420,7 @@ else:
                     cursor.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
                     conn.commit()
                     st.success("Cliente excluído!")
-                    st.experimental_rerun()
+                    st.rerun()
 
     # --- MENU CADASTRO PRODUTOS ---
     elif menu == "Cadastro Produtos":
@@ -471,7 +471,7 @@ else:
                     cursor.execute("DELETE FROM produtos WHERE id=?", (produto_id,))
                     conn.commit()
                     st.success("Produto excluído!")
-                    st.experimental_rerun()
+                    st.rerun()
 
     # --- MENU CADASTRO SERVIÇOS ---
     elif menu == "Cadastro Serviços":
@@ -518,13 +518,13 @@ else:
                     """, (novo_nome, nova_unidade, nova_quantidade, novo_valor, servico_id))
                     conn.commit()
                     st.success("Serviço atualizado!")
-                    st.experimental_rerun()
+                    st.rerun()
 
                 if st.button("Excluir Serviço"):
                     cursor.execute("DELETE FROM servicos WHERE id=?", (servico_id,))
                     conn.commit()
                     st.success("Serviço excluído!")
-                    st.experimental_rerun()
+                    st.rerun()
 
     # --- MENU AGENDAMENTO ---
     elif menu == "Agendamento":
@@ -592,7 +592,7 @@ else:
                         if st.button(f"Cancelar {ag[0]}"):
                             st.session_state["cancelar_id"] = ag[0]
                             st.session_state["menu"] = "Cancelar Agendamento"
-                            st.experimental_rerun()
+                            st.rerun()
         else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
 
@@ -625,7 +625,7 @@ else:
             st.success("Agendamento reagendado com sucesso!")
             del st.session_state["reagendar_id"]
             st.session_state["menu"] = "Agendamento"
-            st.experimental_rerun()
+            st.rerun()
 
     # --- MENU CANCELAR AGENDAMENTO ---
     elif menu == "Cancelar Agendamento":
@@ -656,7 +656,7 @@ else:
             st.success("Agendamento cancelado com sucesso!")
             del st.session_state["cancelar_id"]
             st.session_state["menu"] = "Agendamento"
-            st.experimental_rerun()
+            st.rerun()
 
     # --- MENU VENDAS ---
     elif menu == "Vendas":
@@ -770,7 +770,7 @@ else:
                 cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
                 conn.commit()
                 st.success("Venda cancelada!")
-                st.experimental_rerun()
+                st.rerun()
 
     # --- MENU RELATÓRIOS ---
     elif menu == "Relatórios":
@@ -836,4 +836,4 @@ else:
     elif menu == "Sair":
         st.session_state.login = False
         st.session_state.menu = "Início"
-        st.experimental_rerun()
+        st.rerun()
