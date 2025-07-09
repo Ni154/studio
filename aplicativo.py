@@ -296,9 +296,9 @@ else:
         st.subheader("🧍 Cadastro e Gerenciamento de Clientes")
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
         clientes_dict = {c[1]: c[0] for c in clientes}
-
+    
         col1, col2 = st.columns([2, 3])
-
+    
         with col1:
             with st.form("form_cliente", clear_on_submit=True):
                 nome = st.text_input("Nome completo")
@@ -327,7 +327,7 @@ else:
                 problema_extra = st.radio("Outro problema?", ["SIM", "NÃO"])
                 qual_problema = st.text_input("Qual problema?") if problema_extra == "SIM" else ""
                 autorizacao_imagem = st.radio("Autoriza uso de imagem?", ["SIM", "NÃO"])
-
+    
                 st.write("Assinatura Digital")
                 assinatura_canvas = st_canvas(
                     fill_color="rgba(0,0,0,0)",
@@ -338,21 +338,21 @@ else:
                     width=400,
                     drawing_mode="freedraw"
                 )
-
+    
                 if st.form_submit_button("Salvar Cliente"):
                     try:
                         nascimento = datetime.strptime(nascimento_str, "%d/%m/%Y").date()
                     except Exception:
                         st.error("Data de nascimento inválida. Use o formato DD/MM/AAAA.")
                         st.stop()
-
+    
                     assinatura = None
                     if assinatura_canvas.image_data is not None:
                         img = Image.fromarray(assinatura_canvas.image_data.astype('uint8'), 'RGBA')
                         buffer = io.BytesIO()
                         img.save(buffer, format="PNG")
                         assinatura = buffer.getvalue()
-
+    
                     cursor.execute("""
                         INSERT INTO clientes (
                             nome, telefone, nascimento, hora_agendada, instagram, cantor, bebida,
@@ -370,12 +370,12 @@ else:
                     ))
                     conn.commit()
                     st.success("Cliente cadastrado!")
-
+    
         with col2:
             st.write("### Clientes Cadastrados")
             df_clientes = pd.DataFrame(clientes, columns=["ID", "Nome"])
             st.dataframe(df_clientes[["Nome"]], use_container_width=True)
-
+    
             cliente_selecionado = st.selectbox("Selecionar cliente para visualizar ou excluir", [""] + list(clientes_dict.keys()))
             if cliente_selecionado:
                 cliente_id = clientes_dict[cliente_selecionado]
@@ -412,12 +412,59 @@ else:
                 st.write(f"Autoriza uso de imagem? {dados_cliente[26]}")
                 if dados_cliente[27]:
                     st.image(dados_cliente[27], caption="Assinatura digital", use_column_width=True)
-
+    
                 if st.button("Excluir Cliente"):
                     cursor.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
                     conn.commit()
                     st.success("Cliente excluído!")
                     st.rerun()
+    
+                # Histórico de Atendimentos com Filtros
+                st.markdown("---")
+                st.subheader("📜 Histórico de Atendimentos")
+    
+                historico = cursor.execute("""
+                    SELECT v.data, vi.tipo,
+                        CASE WHEN vi.tipo = 'produto' THEN p.nome ELSE s.nome END AS nome_item,
+                        vi.quantidade, vi.preco
+                    FROM vendas v
+                    JOIN venda_itens vi ON v.id = vi.venda_id
+                    LEFT JOIN produtos p ON vi.tipo = 'produto' AND vi.item_id = p.id
+                    LEFT JOIN servicos s ON vi.tipo = 'servico' AND vi.item_id = s.id
+                    WHERE v.cliente_id = ?
+                    ORDER BY v.data DESC
+                """, (cliente_id,)).fetchall()
+    
+                if historico:
+                    df_hist = pd.DataFrame(historico, columns=["Data", "Tipo", "Item", "Quantidade", "Preço Unitário"])
+                    df_hist["Data"] = pd.to_datetime(df_hist["Data"]).dt.strftime("%d/%m/%Y")
+                    df_hist["Total"] = df_hist["Quantidade"] * df_hist["Preço Unitário"]
+    
+                    # Filtros
+                    colf1, colf2, colf3 = st.columns(3)
+                    with colf1:
+                        tipo_filtro = st.selectbox("Filtrar por Tipo", ["Todos", "produto", "servico"])
+                    with colf2:
+                        item_filtro = st.selectbox("Filtrar por Item", ["Todos"] + sorted(df_hist["Item"].unique().tolist()))
+                    with colf3:
+                        datas_disponiveis = sorted(df_hist["Data"].unique())
+                        data_filtro = st.selectbox("Filtrar por Data", ["Todas"] + datas_disponiveis[::-1])
+    
+                    df_filtrado = df_hist.copy()
+    
+                    if tipo_filtro != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado["Tipo"] == tipo_filtro]
+                    if item_filtro != "Todos":
+                        df_filtrado = df_filtrado[df_filtrado["Item"] == item_filtro]
+                    if data_filtro != "Todas":
+                        df_filtrado = df_filtrado[df_filtrado["Data"] == data_filtro]
+    
+                    st.dataframe(df_filtrado, use_container_width=True)
+    
+                    total_geral = df_filtrado["Total"].sum()
+                    st.markdown(f"**Total Geral Filtrado: R$ {total_geral:.2f}**")
+                else:
+                    st.info("Nenhum atendimento registrado para este cliente.")
 
     # --- MENU CADASTRO PRODUTOS ---
     elif menu == "Cadastro Produtos":
@@ -717,40 +764,52 @@ else:
         with st.form("form_venda"):
             st.write(f"Cliente selecionado: **{cliente_selecionado}**")
     
-            # Produtos multiselect
+            # Seleção de produtos e serviços
             itens_produtos = st.multiselect("Produtos", list(produtos_dict.keys()))
-    
-            # Serviços multiselect com seleção padrão dos agendados
             itens_servicos = st.multiselect("Serviços", list(servicos_dict.keys()), default=servicos_agendados)
     
-            # Dicionários para guardar quantidades
             quantidade_produtos = {}
             quantidade_servicos = {}
     
-            # Layout para exibir os itens com quantidade, preço unitário e subtotal
             st.markdown("### Itens selecionados")
+    
             total_geral = 0
     
-            # Produtos
-            for p in itens_produtos:
-                qtd = st.number_input(f"Quantidade - Produto: {p}", min_value=1, value=1, key=f"qtd_p_{p}")
-                quantidade_produtos[p] = qtd
-                preco = produtos_dict[p][1]
-                subtotal = preco * qtd
-                total_geral += subtotal
-                st.write(f"**{p}** — Preço unitário: R$ {preco:.2f} — Quantidade: {qtd} — Subtotal: R$ {subtotal:.2f}")
+            if itens_produtos:
+                st.markdown("#### Produtos")
+                for p in itens_produtos:
+                    col1, col2, col3 = st.columns([3, 2, 3])
+                    with col1:
+                        st.write(f"**{p}**")
+                    with col2:
+                        preco = produtos_dict[p][1]
+                        st.write(f"Preço unitário: R$ {preco:.2f}")
+                    with col3:
+                        qtd = st.number_input(f"Quantidade", min_value=1, value=1, key=f"qtd_p_{p}")
+                        quantidade_produtos[p] = qtd
+                        subtotal = preco * qtd
+                        st.write(f"Subtotal: R$ {subtotal:.2f}")
+                        total_geral += subtotal
     
-            # Serviços
-            for s in itens_servicos:
-                qtd = st.number_input(f"Quantidade - Serviço: {s}", min_value=1, value=1, key=f"qtd_s_{s}")
-                quantidade_servicos[s] = qtd
-                preco = servicos_dict[s][1]
-                subtotal = preco * qtd
-                total_geral += subtotal
-                st.write(f"**{s}** — Preço unitário: R$ {preco:.2f} — Quantidade: {qtd} — Subtotal: R$ {subtotal:.2f}")
+            if itens_servicos:
+                st.markdown("#### Serviços")
+                for s in itens_servicos:
+                    preco = servicos_dict[s][1]
+                    qtd = 1  # Sempre 1 para serviços, conforme regra
+                    quantidade_servicos[s] = qtd
+                    subtotal = preco * qtd
+                    col1, col2, col3 = st.columns([3, 2, 3])
+                    with col1:
+                        st.write(f"**{s}**")
+                    with col2:
+                        st.write(f"Preço unitário: R$ {preco:.2f}")
+                    with col3:
+                        st.write(f"Quantidade: {qtd}")
+                    st.write(f"Subtotal: R$ {subtotal:.2f}")
+                    total_geral += subtotal
     
             st.markdown("---")
-            st.write(f"## Total: R$ {total_geral:.2f}")
+            st.markdown(f"## Total da Venda: R$ {total_geral:.2f}")
     
             if st.form_submit_button("Finalizar Venda"):
                 if cliente_selecionado == "":
