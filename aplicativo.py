@@ -835,7 +835,7 @@ else:
                         cursor.execute("UPDATE agendamentos SET status='Finalizado' WHERE id=?", (ag[0],))
                         conn.commit()
                         st.success("🎉 Venda por agendamento realizada com sucesso!")
-                        st.experimental_rerun()
+                        st.rerun()
     
         else:
             st.markdown("### Nova Venda")
@@ -874,7 +874,7 @@ else:
                                 cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?", (item["quantidade"], item["id"]))
                         conn.commit()
                         st.success("🎉 Venda realizada com sucesso!")
-                        st.experimental_rerun()
+                        st.rerun()
             else:
                 st.warning("Selecione um cliente para continuar.")
 
