@@ -1086,13 +1086,11 @@ else:
         st.success(f"Venda {venda_id} cancelada com sucesso!")
 
 
-    # --- MENU BACKUP ---
+         # --- MENU BACKUP ---
     elif menu == "Backup":
-       st.subheader("💾 Backup do Banco de Dados")
-    
-       if st.button("Fazer Backup"):
-           fazer_backup()
-    
+        st.subheader("💾 Backup do Banco de Dados")
+        fazer_backup() 
+
     # --- MENU SAIR ---
     elif menu == "Sair":
         st.session_state.login = False
