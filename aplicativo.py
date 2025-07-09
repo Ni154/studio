@@ -1011,10 +1011,8 @@ else:
             st.error("Nenhuma venda selecionada para cancelar.")
             return
     
-        # Atualiza o status para cancelado
         cursor.execute("UPDATE vendas SET cancelada = 1 WHERE id = ?", (venda_id,))
     
-        # Repor estoque dos produtos vendidos
         itens_produtos = cursor.execute(
             "SELECT item_id, quantidade FROM venda_itens WHERE venda_id = ? AND tipo = 'produto'", (venda_id,)
         ).fetchall()
