@@ -1,5 +1,3 @@
-# PARTE 1/5 - INÍCIO DO SISTEMA
-
 import streamlit as st
 import sqlite3
 from datetime import datetime, date
@@ -22,7 +20,6 @@ conn = sqlite3.connect("studio_depilation.db", check_same_thread=False)
 cursor = conn.cursor()
 
 # FUNÇÃO DE FORMATAÇÃO
-
 def formatar_data_br(data_iso):
     try:
         return datetime.strptime(data_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -162,59 +159,57 @@ if not st.session_state.login:
             st.error("Usuário ou senha inválidos")
 else:
     with st.sidebar:
-    if "logo_img" in st.session_state:
-    st.image(st.session_state["logo_img"], width=150)
-elif os.path.exists("logo_studio.png"):
-    with open("logo_studio.png", "rb") as f:
-        st.session_state["logo_img"] = f.read()
-    st.image(st.session_state["logo_img"], width=150)
-else:
-    st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
+        if "logo_img" in st.session_state:
+            st.image(st.session_state["logo_img"], width=150)
+        elif os.path.exists("logo_studio.png"):
+            with open("logo_studio.png", "rb") as f:
+                st.session_state["logo_img"] = f.read()
+            st.image(st.session_state["logo_img"], width=150)
+        else:
+            st.image("https://via.placeholder.com/150x100.png?text=LOGO", width=150)
 
-    st.write("📎 **Importar nova logo:**")
-    uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
-   if uploaded_logo:
-       bytes_logo = uploaded_logo.read()
-       with open("logo_studio.png", "wb") as f:
-           f.write(bytes_logo)
-       st.session_state["logo_img"] = bytes_logo
-       st.success("Logo atualizada!")
+        st.write("📎 **Importar nova logo:**")
+        uploaded_logo = st.file_uploader("Importar Logo", type=["png", "jpg", "jpeg"])
+        if uploaded_logo:
+            bytes_logo = uploaded_logo.read()
+            with open("logo_studio.png", "wb") as f:
+                f.write(bytes_logo)
+            st.session_state["logo_img"] = bytes_logo
+            st.success("Logo atualizada!")
 
-    menu_opcoes = [
-        "Início", "Dashboard", "Cadastro Cliente", "Cadastro Empresa", "Cadastro Produtos",
-        "Cadastro Serviços", "Agendamento", "Reagendar", "Cancelar Agendamento",
-        "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
-    ]
+        menu_opcoes = [
+            "Início", "Dashboard", "Cadastro Cliente", "Cadastro Empresa", "Cadastro Produtos",
+            "Cadastro Serviços", "Agendamento", "Reagendar", "Cancelar Agendamento",
+            "Vendas", "Cancelar Vendas", "Despesas", "Relatórios", "Backup", "Sair"
+        ]
 
-    icones_menu = {
-        "Início": "🏠",
-        "Dashboard": "📊",
-        "Cadastro Cliente": "🧍",
-        "Cadastro Empresa": "🏢",
-        "Cadastro Produtos": "📦",
-        "Cadastro Serviços": "💆",
-        "Agendamento": "📅",
-        "Reagendar": "🔄",
-        "Cancelar Agendamento": "❌",
-        "Vendas": "💰",
-        "Cancelar Vendas": "🚫",
-        "Despesas": "💸",
-        "Relatórios": "📈",
-        "Backup": "💾",
-        "Sair": "🔓"
-    }
+        icones_menu = {
+            "Início": "🏠",
+            "Dashboard": "📊",
+            "Cadastro Cliente": "🧍",
+            "Cadastro Empresa": "🏢",
+            "Cadastro Produtos": "📦",
+            "Cadastro Serviços": "💆",
+            "Agendamento": "📅",
+            "Reagendar": "🔄",
+            "Cancelar Agendamento": "❌",
+            "Vendas": "💰",
+            "Cancelar Vendas": "🚫",
+            "Despesas": "💸",
+            "Relatórios": "📈",
+            "Backup": "💾",
+            "Sair": "🔓"
+        }
 
-    for opcao in menu_opcoes:
-        icone = icones_menu.get(opcao, "📌")
-        if st.button(f"{icone} {opcao}"):
-            st.session_state["menu"] = opcao
+        for opcao in menu_opcoes:
+            icone = icones_menu.get(opcao, "📌")
+            if st.button(f"{icone} {opcao}"):
+                st.session_state["menu"] = opcao
 
     menu = st.session_state.get("menu", "Início")
     st.title(f"🧭 {menu}")
 
-    # PARTE 2/5 - INÍCIO CONTINUAÇÃO
-
-    # ----------- MENU: INÍCIO -----------    
+    # --- MENU INÍCIO ---
     if menu == "Início":
         st.subheader("👋 Seja bem-vindo(a)!")
         hoje = date.today().strftime("%d/%m/%Y")
@@ -242,7 +237,7 @@ else:
             else:
                 st.warning("Nenhum agendamento no período.")
 
-    # ----------- MENU: DASHBOARD -----------    
+    # --- MENU DASHBOARD ---
     elif menu == "Dashboard":
         st.subheader("📊 Visão Geral")
         total_clientes = cursor.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
@@ -278,7 +273,7 @@ else:
         ax.set_title("Resumo de Vendas")
         st.pyplot(fig)
 
-    # ----------- MENU: DESPESAS -----------
+    # --- MENU DESPESAS ---
     elif menu == "Despesas":
         st.subheader("📉 Registro de Despesas")
         with st.form("form_despesa", clear_on_submit=True):
@@ -298,9 +293,8 @@ else:
             st.dataframe(df_despesas)
         else:
             st.info("Nenhuma despesa registrada.")
-    # PARTE 3/5 - CONTINUAÇÃO
 
-    # ----------- MENU: CADASTRO CLIENTE -----------
+    # --- MENU CADASTRO CLIENTE ---
     elif menu == "Cadastro Cliente":
         st.subheader("🧍 Cadastro e Gerenciamento de Clientes")
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
@@ -349,86 +343,86 @@ else:
                 )
 
                 if st.form_submit_button("Salvar Cliente"):
-                    # Validação data nascimento
                     try:
                         nascimento = datetime.strptime(nascimento_str, "%d/%m/%Y").date()
                     except Exception:
                         st.error("Data de nascimento inválida. Use o formato DD/MM/AAAA.")
                         st.stop()
 
-                    assinatura_bytes = None
+                    assinatura = None
                     if assinatura_canvas.image_data is not None:
                         img = Image.fromarray(assinatura_canvas.image_data.astype('uint8'), 'RGBA')
-                        buffered = io.BytesIO()
-                        img.save(buffered, format="PNG")
-                        assinatura_bytes = buffered.getvalue()
+                        buffer = io.BytesIO()
+                        img.save(buffer, format="PNG")
+                        assinatura = buffer.getvalue()
 
                     cursor.execute("""
                         INSERT INTO clientes (
-                            nome, telefone, nascimento, hora_agendada, instagram, cantor, bebida, epilacao, alergia, qual_alergia,
-                            problemas_pele, tratamento, tipo_pele, hidrata, gravida, medicamento, qual_medicamento, uso,
-                            diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite, problema_extra, qual_problema,
-                            autorizacao_imagem, assinatura
+                            nome, telefone, nascimento, hora_agendada, instagram, cantor, bebida,
+                            epilacao, alergia, qual_alergia, problemas_pele, tratamento,
+                            tipo_pele, hidrata, gravida, medicamento, qual_medicamento, uso,
+                            diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite,
+                            problema_extra, qual_problema, autorizacao_imagem, assinatura
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        nome, telefone, nascimento.strftime("%Y-%m-%d"), hora_agendada, instagram, cantor, bebida, epilacao,
-                        alergia, qual_alergia, problemas_pele, tratamento, tipo_pele, hidrata, gravida, medicamento,
-                        qual_medicamento, uso, diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite,
-                        problema_extra, qual_problema, autorizacao_imagem, assinatura_bytes
+                        nome, telefone, nascimento.strftime("%Y-%m-%d"), hora_agendada, instagram, cantor, bebida,
+                        epilacao, alergia, qual_alergia, problemas_pele, tratamento,
+                        tipo_pele, hidrata, gravida, medicamento, qual_medicamento, uso,
+                        diabete, pelos_encravados, cirurgia, foliculite, qual_foliculite,
+                        problema_extra, qual_problema, autorizacao_imagem, assinatura
                     ))
                     conn.commit()
-                    st.success("Cliente cadastrado com sucesso!")
+                    st.success("Cliente cadastrado!")
 
         with col2:
             st.write("### Clientes Cadastrados")
-            cliente_selecionado = st.selectbox("Selecione um cliente para ver histórico", [""] + list(clientes_dict.keys()))
+            df_clientes = pd.DataFrame(clientes, columns=["ID", "Nome"])
+            st.dataframe(df_clientes[["Nome"]], use_container_width=True)
+
+            cliente_selecionado = st.selectbox("Selecionar cliente para visualizar ou excluir", [""] + list(clientes_dict.keys()))
             if cliente_selecionado:
                 cliente_id = clientes_dict[cliente_selecionado]
+                dados_cliente = cursor.execute("SELECT * FROM clientes WHERE id=?", (cliente_id,)).fetchone()
+                st.write(f"Nome: {dados_cliente[1]}")
+                st.write(f"Telefone: {dados_cliente[2]}")
+                st.write(f"Nascimento: {formatar_data_br(dados_cliente[3])}")
+                st.write(f"Hora Agendada: {dados_cliente[4]}")
+                st.write(f"Instagram: {dados_cliente[5]}")
+                st.write(f"Cantor favorito: {dados_cliente[6]}")
+                st.write(f"Bebida favorita: {dados_cliente[7]}")
+                st.write(f"Já fez epilação na cera? {dados_cliente[8]}")
+                st.write(f"Possui alergia? {dados_cliente[9]}")
+                if dados_cliente[9] == "SIM":
+                    st.write(f"Qual alergia? {dados_cliente[10]}")
+                st.write(f"Problemas de pele? {dados_cliente[11]}")
+                st.write(f"Tratamento dermatológico? {dados_cliente[12]}")
+                st.write(f"Tipo de pele: {dados_cliente[13]}")
+                st.write(f"Hidrata a pele? {dados_cliente[14]}")
+                st.write(f"Está grávida? {dados_cliente[15]}")
+                st.write(f"Uso de medicamentos? {dados_cliente[16]}")
+                if dados_cliente[16] == "SIM":
+                    st.write(f"Qual medicamento? {dados_cliente[17]}")
+                st.write(f"DIU ou marca-passo? {dados_cliente[18]}")
+                st.write(f"Diabetes? {dados_cliente[19]}")
+                st.write(f"Pelos encravados? {dados_cliente[20]}")
+                st.write(f"Cirurgia recente? {dados_cliente[21]}")
+                st.write(f"Foliculite? {dados_cliente[22]}")
+                if dados_cliente[22] == "SIM":
+                    st.write(f"Qual foliculite? {dados_cliente[23]}")
+                st.write(f"Outro problema? {dados_cliente[24]}")
+                if dados_cliente[24] == "SIM":
+                    st.write(f"Qual problema? {dados_cliente[25]}")
+                st.write(f"Autoriza uso de imagem? {dados_cliente[26]}")
+                if dados_cliente[27]:
+                    st.image(dados_cliente[27], caption="Assinatura digital", use_column_width=True)
 
-                st.write("#### Dados do Cliente")
-                dados = cursor.execute("SELECT * FROM clientes WHERE id=?", (cliente_id,)).fetchone()
-                if dados:
-                    st.write(f"Nome: {dados[1]}")
-                    st.write(f"Telefone: {dados[2]}")
-                    st.write(f"Nascimento: {formatar_data_br(dados[3])}")
-                    st.write(f"Hora agendada: {dados[4]}")
-                    st.write(f"Instagram: {dados[5]}")
-                    st.write(f"Cantor favorito: {dados[6]}")
-                    st.write(f"Bebida favorita: {dados[7]}")
+                if st.button("Excluir Cliente"):
+                    cursor.execute("DELETE FROM clientes WHERE id=?", (cliente_id,))
+                    conn.commit()
+                    st.success("Cliente excluído!")
+                    st.experimental_rerun()
 
-                st.write("#### Histórico de Agendamentos")
-                ags = cursor.execute("SELECT data, hora, servicos, status FROM agendamentos WHERE cliente_id=? ORDER BY data DESC", (cliente_id,)).fetchall()
-                if ags:
-                    for a in ags:
-                        st.write(f"- {formatar_data_br(a[0])} às {a[1]}: {a[2]} (Status: {a[3]})")
-                else:
-                    st.info("Nenhum agendamento para este cliente.")
-
-                st.write("#### Histórico de Vendas")
-                vendas = cursor.execute("SELECT data, total, cancelada FROM vendas WHERE cliente_id=? ORDER BY data DESC", (cliente_id,)).fetchall()
-                if vendas:
-                    for v in vendas:
-                        status_venda = "Cancelada" if v[2] else "Ativa"
-                        st.write(f"- {formatar_data_br(v[0])}: R$ {v[1]:.2f} ({status_venda})")
-                else:
-                    st.info("Nenhuma venda para este cliente.")
-
-        # Opção de excluir cliente
-        st.markdown("---")
-        st.subheader("Excluir Cliente")
-        cliente_para_excluir = st.selectbox("Selecione cliente para excluir", [""] + list(clientes_dict.keys()))
-        if st.button("Excluir Cliente"):
-            if cliente_para_excluir == "":
-                st.error("Selecione um cliente para excluir.")
-            else:
-                cliente_id_excluir = clientes_dict[cliente_para_excluir]
-                cursor.execute("DELETE FROM clientes WHERE id=?", (cliente_id_excluir,))
-                conn.commit()
-                st.success(f"Cliente '{cliente_para_excluir}' excluído com sucesso!")
-                st.experimental_rerun()
-    # PARTE 4/5 - CONTINUAÇÃO
-
-    # ----------- MENU: CADASTRO PRODUTOS -----------
+    # --- MENU CADASTRO PRODUTOS ---
     elif menu == "Cadastro Produtos":
         st.subheader("📦 Cadastro e Gerenciamento de Produtos")
         produtos = cursor.execute("SELECT id, nome, quantidade, preco_venda FROM produtos ORDER BY nome").fetchall()
@@ -474,13 +468,12 @@ else:
                     st.experimental_rerun()
 
                 if st.button("Excluir Produto"):
-                    # Não altera histórico, só exclui produto atual
                     cursor.execute("DELETE FROM produtos WHERE id=?", (produto_id,))
                     conn.commit()
                     st.success("Produto excluído!")
                     st.experimental_rerun()
 
-    # ----------- MENU: CADASTRO SERVIÇOS -----------
+    # --- MENU CADASTRO SERVIÇOS ---
     elif menu == "Cadastro Serviços":
         st.subheader("💆 Cadastro e Gerenciamento de Serviços")
         servicos = cursor.execute("SELECT id, nome, unidade, quantidade, valor FROM servicos ORDER BY nome").fetchall()
@@ -532,9 +525,8 @@ else:
                     conn.commit()
                     st.success("Serviço excluído!")
                     st.experimental_rerun()
-    # PARTE 5/5 - FINALIZAÇÃO E FUNCIONALIDADES COMPLETAS
 
-    # ----------- MENU: AGENDAMENTO -----------
+    # --- MENU AGENDAMENTO ---
     elif menu == "Agendamento":
         st.subheader("📅 Agendamento")
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
@@ -567,7 +559,6 @@ else:
 
         st.markdown("---")
         st.subheader("📋 Lista de Agendamentos")
-        # Mostrar agendamentos do dia, ordenado por hora
         data_filtro = st.date_input("Filtrar agendamentos a partir de", date.today())
         data_filtro_str = data_filtro.strftime("%Y-%m-%d")
 
@@ -605,7 +596,7 @@ else:
         else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
 
-    # ----------- MENU: REAGENDAR -----------
+    # --- MENU REAGENDAR ---
     elif menu == "Reagendar":
         st.subheader("🔄 Reagendar Agendamento")
         agendamento_id = st.session_state.get("reagendar_id", None)
@@ -636,7 +627,7 @@ else:
             st.session_state["menu"] = "Agendamento"
             st.experimental_rerun()
 
-    # ----------- MENU: CANCELAR AGENDAMENTO -----------
+    # --- MENU CANCELAR AGENDAMENTO ---
     elif menu == "Cancelar Agendamento":
         st.subheader("❌ Cancelar Agendamento")
         cancelar_id = st.session_state.get("cancelar_id", None)
@@ -667,7 +658,7 @@ else:
             st.session_state["menu"] = "Agendamento"
             st.experimental_rerun()
 
-    # ----------- MENU: VENDAS -----------
+    # --- MENU VENDAS ---
     elif menu == "Vendas":
         st.subheader("💰 Registrar Venda")
 
@@ -716,7 +707,6 @@ else:
             st.write(f"Cliente selecionado: {cliente_selecionado}")
 
             if agendamento_selecionado != "":
-                # Preenche os serviços do agendamento para venda
                 itens_servicos = servicos_agendados
 
             itens_produtos = st.multiselect("Produtos", list(produtos_dict.keys()))
@@ -726,147 +716,124 @@ else:
             quantidade_servicos = {}
 
             for p in itens_produtos:
-                q = st.number_input(f"Quantidade - Produto: {p}", min_value=1, step=1, key=f"qtd_prod_{p}")
-                quantidade_produtos[p] = q
+                quantidade_produtos[p] = st.number_input(f"Quantidade {p}", min_value=1, value=1, key=f"qtd_p_{p}")
 
             for s in itens_servicos:
-                q = st.number_input(f"Quantidade - Serviço: {s}", min_value=1, step=1, key=f"qtd_serv_{s}")
-                quantidade_servicos[s] = q
+                quantidade_servicos[s] = st.number_input(f"Quantidade {s}", min_value=1, value=1, key=f"qtd_s_{s}")
 
             if st.form_submit_button("Finalizar Venda"):
                 if cliente_selecionado == "":
-                    st.error("Selecione um cliente.")
+                    st.error("Selecione um cliente para a venda.")
                 else:
                     id_cliente = clientes_dict[cliente_selecionado]
                     total = 0
-
-                    cursor.execute("INSERT INTO vendas (cliente_id, data, total, cancelada) VALUES (?, ?, ?, 0)",
-                                   (id_cliente, datetime.now().strftime("%Y-%m-%d"), 0))
+                    cursor.execute("""
+                        INSERT INTO vendas (cliente_id, data, total, cancelada) VALUES (?, ?, ?, 0)
+                    """, (id_cliente, data_venda_str, 0))
+                    conn.commit()
                     venda_id = cursor.lastrowid
 
-                    for p_nome, qtd in quantidade_produtos.items():
-                        p_id, p_preco = produtos_dict[p_nome]
-                        total += p_preco * qtd
+                    for p in itens_produtos:
+                        pid, preco = produtos_dict[p]
+                        qtd = quantidade_produtos.get(p, 1)
                         cursor.execute("""
-                            INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                            VALUES (?, 'produto', ?, ?, ?)
-                        """, (venda_id, p_id, qtd, p_preco))
-                        # Atualiza estoque do produto
-                        cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id=?", (qtd, p_id))
+                            INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco) VALUES (?, 'produto', ?, ?, ?)
+                        """, (venda_id, pid, qtd, preco))
+                        total += preco * qtd
 
-                    for s_nome, qtd in quantidade_servicos.items():
-                        s_id, s_valor = servicos_dict[s_nome]
-                        total += s_valor * qtd
+                    for s in itens_servicos:
+                        sid, valor = servicos_dict[s]
+                        qtd = quantidade_servicos.get(s, 1)
                         cursor.execute("""
-                            INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco)
-                            VALUES (?, 'servico', ?, ?, ?)
-                        """, (venda_id, s_id, qtd, s_valor))
+                            INSERT INTO venda_itens (venda_id, tipo, item_id, quantidade, preco) VALUES (?, 'servico', ?, ?, ?)
+                        """, (venda_id, sid, qtd, valor))
+                        total += valor * qtd
 
-                    cursor.execute("UPDATE vendas SET total=? WHERE id=?", (total, venda_id))
-
-                    # Atualiza status do agendamento se veio de venda
-                    if agendamento_selecionado != "":
-                        cursor.execute("UPDATE agendamentos SET status='Finalizado' WHERE id=?", (ag_id,))
+                    cursor.execute("""
+                        UPDATE vendas SET total=? WHERE id=?
+                    """, (total, venda_id))
 
                     conn.commit()
-                    st.success(f"Venda registrada! Total: R$ {total:.2f}")
-                    st.experimental_rerun()
 
-    # ----------- MENU: CANCELAR VENDAS -----------
+                    st.success(f"Venda finalizada com total R$ {total:.2f}")
+
+    # --- MENU CANCELAR VENDAS ---
     elif menu == "Cancelar Vendas":
-        st.subheader("❌ Cancelar Venda")
-        vendas_ativas = cursor.execute("SELECT id, data, total FROM vendas WHERE cancelada=0").fetchall()
-        vendas_dict = {f"ID: {v[0]} - Data: {formatar_data_br(v[1])} - Total: R$ {v[2]:.2f}": v[0] for v in vendas_ativas}
-        venda_selecionada = st.selectbox("Selecione a venda para cancelar", [""] + list(vendas_dict.keys()))
+        st.subheader("🚫 Cancelar Venda")
+        vendas_ativas = cursor.execute("SELECT id, cliente_id, data, total FROM vendas WHERE cancelada=0 ORDER BY data DESC").fetchall()
+        vendas_dict = {f"ID {v[0]} - Cliente {cursor.execute('SELECT nome FROM clientes WHERE id=?', (v[1],)).fetchone()[0]} - R$ {v[3]:.2f}": v[0] for v in vendas_ativas}
 
+        venda_selecionada = st.selectbox("Selecione a venda para cancelar", [""] + list(vendas_dict.keys()))
         if venda_selecionada != "":
             venda_id = vendas_dict[venda_selecionada]
             if st.button("Confirmar Cancelamento"):
                 cursor.execute("UPDATE vendas SET cancelada=1 WHERE id=?", (venda_id,))
-                # Reverter estoque
-                itens = cursor.execute("SELECT item_id, quantidade FROM venda_itens WHERE venda_id=? AND tipo='produto'", (venda_id,)).fetchall()
-                for item_id, qtd in itens:
-                    cursor.execute("UPDATE produtos SET quantidade = quantidade + ? WHERE id=?", (qtd, item_id))
                 conn.commit()
-                st.success("Venda cancelada e estoque atualizado.")
+                st.success("Venda cancelada!")
                 st.experimental_rerun()
 
-    # ----------- MENU: DESPESAS -----------
-    elif menu == "Despesas":
-        st.subheader("💸 Registrar Despesa")
-        data_despesa = st.date_input("Data da Despesa", date.today())
-        descricao = st.text_input("Descrição")
-        valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-
-        if st.button("Salvar Despesa"):
-            cursor.execute("INSERT INTO despesas (data, descricao, valor) VALUES (?, ?, ?)",
-                           (data_despesa.strftime("%Y-%m-%d"), descricao, valor))
-            conn.commit()
-            st.success("Despesa registrada!")
-
-        st.markdown("---")
-        st.subheader("Despesas Registradas")
-        despesas = cursor.execute("SELECT id, data, descricao, valor FROM despesas ORDER BY data DESC").fetchall()
-        df_despesas = pd.DataFrame(despesas, columns=["ID", "Data", "Descrição", "Valor"])
-        df_despesas["Data"] = df_despesas["Data"].apply(formatar_data_br)
-        st.dataframe(df_despesas[["Data", "Descrição", "Valor"]], use_container_width=True)
-
-        # Excluir despesa
-        despesa_excluir = st.selectbox("Excluir despesa", [""] + list(df_despesas["ID"]))
-        if despesa_excluir != "":
-            if st.button("Confirmar Exclusão"):
-                cursor.execute("DELETE FROM despesas WHERE id=?", (despesa_excluir,))
-                conn.commit()
-                st.success("Despesa excluída!")
-                st.experimental_rerun()
-
-    # ----------- MENU: RELATÓRIOS -----------
+    # --- MENU RELATÓRIOS ---
     elif menu == "Relatórios":
-        st.subheader("📊 Relatórios Financeiros")
+    import pandas as pd
 
-        data_inicio = st.date_input("Data Início", date.today().replace(day=1))
-        data_fim = st.date_input("Data Fim", date.today())
+    st.subheader("📈 Relatórios Financeiros")
 
+    # Seleção do período para relatório
+    data_inicio = st.date_input("Data Início", value=pd.to_datetime("today").replace(day=1))
+    data_fim = st.date_input("Data Fim", value=pd.to_datetime("today"))
+
+    if data_fim < data_inicio:
+        st.error("A data final não pode ser anterior à data inicial.")
+    else:
         data_inicio_str = data_inicio.strftime("%Y-%m-%d")
         data_fim_str = data_fim.strftime("%Y-%m-%d")
 
+        # Consulta vendas por data
         vendas_rel = cursor.execute("""
             SELECT data, SUM(total) FROM vendas
             WHERE data BETWEEN ? AND ? AND cancelada=0
             GROUP BY data ORDER BY data
         """, (data_inicio_str, data_fim_str)).fetchall()
 
+        # Consulta despesas por data
         despesas_rel = cursor.execute("""
             SELECT data, SUM(valor) FROM despesas
             WHERE data BETWEEN ? AND ?
             GROUP BY data ORDER BY data
         """, (data_inicio_str, data_fim_str)).fetchall()
 
+        # DataFrames
         df_vendas = pd.DataFrame(vendas_rel, columns=["Data", "Total_Vendas"])
         df_despesas = pd.DataFrame(despesas_rel, columns=["Data", "Total_Despesas"])
 
+        # Ajustar datas para datetime
         df_vendas["Data"] = pd.to_datetime(df_vendas["Data"])
         df_despesas["Data"] = pd.to_datetime(df_despesas["Data"])
 
-        df = pd.merge(df_vendas, df_despesas, how="outer", on="Data").fillna(0)
+        # Combinar vendas e despesas
+        df = pd.merge(df_vendas, df_despesas, on="Data", how="outer").fillna(0)
+
+        # Calcular lucro
         df["Lucro"] = df["Total_Vendas"] - df["Total_Despesas"]
+
         df = df.sort_values("Data")
 
+        # Gráfico de linha
         st.line_chart(df.set_index("Data")[["Total_Vendas", "Total_Despesas", "Lucro"]])
 
-        st.write("### Tabela de Resultados")
+        # Mostrar tabela formatada
         df["Data"] = df["Data"].dt.strftime("%d/%m/%Y")
-        st.dataframe(df)
+        st.write("### Tabela de Resultados")
+        st.dataframe(df, use_container_width=True)
 
-    # ----------- MENU: BACKUP -----------
+
+    # --- MENU BACKUP ---
     elif menu == "Backup":
         st.subheader("💾 Backup do Banco de Dados")
         fazer_backup()
 
-    # ----------- MENU: SAIR -----------
+    # --- MENU SAIR ---
     elif menu == "Sair":
-    st.session_state.login = False
-    if "logo_img" in st.session_state:
-        del st.session_state["logo_img"]
-    st.experimental_rerun()
-
+        st.session_state.login = False
+        st.session_state.menu = "Início"
+        st.experimental_rerun()
