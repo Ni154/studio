@@ -726,6 +726,7 @@ else:
     elif menu == "Vendas":
         st.subheader("💰 Registrar Venda")
 
+        # Buscar clientes e montar dicionário
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
         clientes_dict = {c[1]: c[0] for c in clientes}
     
@@ -751,10 +752,10 @@ else:
             ag_info = cursor.execute("SELECT cliente_id, servicos FROM agendamentos WHERE id=?", (ag_id,)).fetchone()
             cliente_selecionado = next((c[1] for c in clientes if c[0] == ag_info[0]), "")
             servicos_agendados = ag_info[1].split(", ") if ag_info[1] else []
-    
         else:
             cliente_selecionado = st.selectbox("Cliente para venda", [""] + list(clientes_dict.keys()))
     
+        # Buscar produtos e serviços
         produtos = cursor.execute("SELECT id, nome, preco_venda FROM produtos ORDER BY nome").fetchall()
         produtos_dict = {p[1]: (p[0], p[2]) for p in produtos}
     
@@ -775,10 +776,11 @@ else:
     
             total_geral = 0
     
+            # Produtos: com quantidade editável e subtotal
             if itens_produtos:
                 st.markdown("#### Produtos")
                 for p in itens_produtos:
-                    col1, col2, col3 = st.columns([3, 2, 3])
+                    col1, col2, col3 = st.columns([4, 2, 3])
                     with col1:
                         st.write(f"**{p}**")
                     with col2:
@@ -787,26 +789,26 @@ else:
                     with col3:
                         qtd = st.number_input(f"Quantidade", min_value=1, value=1, key=f"qtd_p_{p}")
                         quantidade_produtos[p] = qtd
-                        subtotal = preco * qtd
-                        st.write(f"Subtotal: R$ {subtotal:.2f}")
-                        total_geral += subtotal
+                    subtotal = preco * quantidade_produtos[p]
+                    st.write(f"Subtotal: R$ {subtotal:.2f}")
+                    total_geral += subtotal
     
+            # Serviços: quantidade fixa 1 e subtotal
             if itens_servicos:
                 st.markdown("#### Serviços")
                 for s in itens_servicos:
                     preco = servicos_dict[s][1]
-                    qtd = 1  # Sempre 1 para serviços, conforme regra
+                    qtd = 1
                     quantidade_servicos[s] = qtd
-                    subtotal = preco * qtd
-                    col1, col2, col3 = st.columns([3, 2, 3])
+                    col1, col2, col3 = st.columns([4, 2, 3])
                     with col1:
                         st.write(f"**{s}**")
                     with col2:
                         st.write(f"Preço unitário: R$ {preco:.2f}")
                     with col3:
                         st.write(f"Quantidade: {qtd}")
-                    st.write(f"Subtotal: R$ {subtotal:.2f}")
-                    total_geral += subtotal
+                    st.write(f"Subtotal: R$ {preco:.2f}")
+                    total_geral += preco
     
             st.markdown("---")
             st.markdown(f"## Total da Venda: R$ {total_geral:.2f}")
@@ -819,6 +821,7 @@ else:
                 else:
                     id_cliente = clientes_dict[cliente_selecionado]
     
+                    # Inserir venda e itens no banco
                     cursor.execute("""
                         INSERT INTO vendas (cliente_id, data, total, cancelada) VALUES (?, ?, ?, 0)
                     """, (id_cliente, data_venda_str, 0))
@@ -851,7 +854,6 @@ else:
     
                     st.success(f"Venda finalizada com total R$ {total:.2f}")
                     st.rerun()
-
    
     # --- MENU CANCELAR VENDAS ---
     elif menu == "Cancelar Vendas":
