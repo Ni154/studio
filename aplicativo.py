@@ -1034,7 +1034,7 @@ else:
 
     elif menu == "Cancelar vendas":
         st.subheader("❌ Cancelar Vendas")
-
+    
         # Buscar vendas ativas (não canceladas)
         vendas_ativas = cursor.execute("""
             SELECT v.id, c.nome, v.data, v.total 
@@ -1086,11 +1086,13 @@ else:
         st.success(f"Venda {venda_id} cancelada com sucesso!")
 
 
-         # --- MENU BACKUP ---
+    # --- MENU BACKUP ---
     elif menu == "Backup":
         st.subheader("💾 Backup do Banco de Dados")
-        fazer_backup() 
-
+    
+        if st.button("Fazer Backup"):
+            fazer_backup()
+    
     # --- MENU SAIR ---
     elif menu == "Sair":
         st.session_state.login = False
