@@ -1085,7 +1085,6 @@ else:
         conn.commit()
         st.success(f"Venda {venda_id} cancelada com sucesso!")
 
-
     # --- MENU BACKUP ---
     elif menu == "Backup":
         st.subheader("💾 Backup do Banco de Dados")
