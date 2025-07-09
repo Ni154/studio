@@ -1085,16 +1085,15 @@ else:
         conn.commit()
         st.success(f"Venda {venda_id} cancelada com sucesso!")
 
-
-# --- MENU BACKUP ---
-elif menu == "Backup":
-    st.subheader("💾 Backup do Banco de Dados")
-
-    if st.button("Fazer Backup"):
-        fazer_backup()
+    # --- MENU BACKUP ---
+    elif menu == "Backup":
+        st.subheader("💾 Backup do Banco de Dados")
+    
+        if st.button("Gerar e Baixar Backup"):
+            fazer_backup()
 
 # --- MENU SAIR ---
-elif menu == "Sair":
-    st.session_state.login = False
-    st.session_state.menu = "Início"
-    st.rerun()
+    elif menu == "Sair":
+        st.session_state.login = False
+        st.session_state.menu = "Início"
+        st.rerun()
