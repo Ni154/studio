@@ -1086,9 +1086,11 @@ else:
         st.success(f"Venda {venda_id} cancelada com sucesso!")
 
     # --- MENU BACKUP ---
-    elif menu == "Backup":
-        st.subheader("💾 Backup do Banco de Dados")
-        fazer_backup()
+   elif menu == "Backup":
+       st.subheader("💾 Backup do Banco de Dados")
+
+       if st.button("Fazer Backup"):
+           fazer_backup()
 
     # --- MENU SAIR ---
     elif menu == "Sair":
