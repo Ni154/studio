@@ -462,7 +462,7 @@ else:
                     """, (novo_nome, nova_quantidade, novo_preco, produto_id))
                     conn.commit()
                     st.success("Produto atualizado!")
-                    st.experimental_rerun()
+                    st.rerun()
 
                 if st.button("Excluir Produto"):
                     cursor.execute("DELETE FROM produtos WHERE id=?", (produto_id,))
