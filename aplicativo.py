@@ -526,19 +526,18 @@ else:
     # --- MENU AGENDAMENTO ---
     elif menu == "Agendamento":
         st.subheader("📅 Agendamento")
-        clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
-        clientes_dict = {c[1]: c[0] for c in clientes}
+        clientes = cursor.execute("SELECT id, nome, telefone FROM clientes ORDER BY nome").fetchall()
+        clientes_dict = {c[1]: {"id": c[0], "telefone": c[2]} for c in clientes}
     
-        # Inicializa estados se não existir
+        # Estado para reagendar e cancelar
         if "reagendar_id" not in st.session_state:
             st.session_state["reagendar_id"] = None
         if "cancelar_id" not in st.session_state:
             st.session_state["cancelar_id"] = None
     
-        # Modo reagendar
+        # --- Reagendamento ---
         if st.session_state["reagendar_id"]:
             agendamento_id = st.session_state["reagendar_id"]
-    
             ag = cursor.execute("""
                 SELECT a.id, c.nome, a.data, a.hora, a.servicos
                 FROM agendamentos a
@@ -550,7 +549,6 @@ else:
             st.write(f"Cliente: {ag[1]}")
             st.write(f"Serviços: {ag[4]}")
     
-            # Permite escolher nova data e hora
             nova_data = st.date_input("Nova data", datetime.strptime(ag[2], "%Y-%m-%d").date())
             nova_hora = st.text_input("Nova hora", ag[3])
     
@@ -570,10 +568,9 @@ else:
     
             st.stop()
     
-        # Modo cancelar
+        # --- Cancelar ---
         if st.session_state["cancelar_id"]:
             cancelar_id = st.session_state["cancelar_id"]
-    
             ag = cursor.execute("""
                 SELECT a.id, c.nome, a.data, a.hora, a.servicos
                 FROM agendamentos a
@@ -603,7 +600,7 @@ else:
     
             st.stop()
     
-        # Interface principal do Agendamento
+        # --- Novo Agendamento ---
         cliente_selecionado = st.selectbox("Selecione o Cliente", [""] + list(clientes_dict.keys()))
         data_agendamento = st.date_input("Data do Agendamento", date.today())
         hora_agendamento = st.text_input("Hora (ex: 14:30)")
@@ -619,7 +616,7 @@ else:
             elif not servicos_selecionados:
                 st.error("Selecione ao menos um serviço.")
             else:
-                id_cliente = clientes_dict[cliente_selecionado]
+                id_cliente = clientes_dict[cliente_selecionado]["id"]
                 data_str = data_agendamento.strftime("%Y-%m-%d")
                 servicos_str = ", ".join(servicos_selecionados)
                 cursor.execute("""
@@ -628,6 +625,7 @@ else:
                 """, (id_cliente, data_str, hora_agendamento, servicos_str))
                 conn.commit()
                 st.success("Agendamento salvo!")
+                st.rerun()
     
         st.markdown("---")
         st.subheader("📋 Lista de Agendamentos")
@@ -635,7 +633,7 @@ else:
         data_filtro_str = data_filtro.strftime("%Y-%m-%d")
     
         agendamentos = cursor.execute("""
-            SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
+            SELECT a.id, c.nome, c.telefone, a.data, a.hora, a.servicos, a.status
             FROM agendamentos a
             JOIN clientes c ON a.cliente_id = c.id
             WHERE a.data >= ?
@@ -646,23 +644,35 @@ else:
             for ag in agendamentos:
                 col1, col2, col3, col4, col5, col6 = st.columns([2,3,2,2,3,3])
                 with col1:
-                    st.write(formatar_data_br(ag[2]))
+                    st.write(formatar_data_br(ag[3]))
                 with col2:
                     st.write(ag[1])
                 with col3:
-                    st.write(ag[3])
-                with col4:
                     st.write(ag[4])
-                with col5:
+                with col4:
                     st.write(ag[5])
+                with col5:
+                    st.write(ag[6])
                 with col6:
-                    if ag[5] == "Agendado":
+                    if ag[6] == "Agendado":
                         if st.button(f"Reagendar {ag[0]}"):
                             st.session_state["reagendar_id"] = ag[0]
-                            st.experimental_rerun()
+                            st.rerun()
                         if st.button(f"Cancelar {ag[0]}"):
                             st.session_state["cancelar_id"] = ag[0]
                             st.rerun()
+    
+                        # WhatsApp
+                        telefone = ag[2]
+                        data_fmt = formatar_data_br(ag[3])
+                        hora = ag[4]
+                        mensagem = (
+                            f"Olá maravilhosa, passando para te lembrar que seu horário está marcado para {hora} "
+                            f"do dia {data_fmt}. Estou te aguardando! 💛"
+                        )
+                        from urllib.parse import quote
+                        link = f"https://wa.me/55{telefone}?text={quote(mensagem)}"
+                        st.markdown(f"[📲 Enviar WhatsApp]({link})", unsafe_allow_html=True)
         else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
 
