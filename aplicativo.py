@@ -585,7 +585,7 @@ else:
                         if st.button(f"Reagendar {ag[0]}"):
                             st.session_state["reagendar_id"] = ag[0]
                             st.session_state["menu"] = "Reagendar"
-                            st.experimental_rerun()
+                            st.rerun()
                         if st.button(f"Cancelar {ag[0]}"):
                             st.session_state["cancelar_id"] = ag[0]
                             st.session_state["menu"] = "Cancelar Agendamento"
