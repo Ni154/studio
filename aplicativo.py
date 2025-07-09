@@ -115,9 +115,9 @@ CREATE TABLE IF NOT EXISTS vendas (
     cliente_id INTEGER,
     data TEXT,
     total REAL,
-    cancelada INTEGER DEFAULT 0
+    cancelada INTEGER DEFAULT 0,
     forma_pagamento TEXT
-)
+);
 """)
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS venda_itens (
