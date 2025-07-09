@@ -528,14 +528,89 @@ else:
         st.subheader("📅 Agendamento")
         clientes = cursor.execute("SELECT id, nome FROM clientes ORDER BY nome").fetchall()
         clientes_dict = {c[1]: c[0] for c in clientes}
-
+    
+        # Inicializa estados se não existir
+        if "reagendar_id" not in st.session_state:
+            st.session_state["reagendar_id"] = None
+        if "cancelar_id" not in st.session_state:
+            st.session_state["cancelar_id"] = None
+    
+        # Modo reagendar
+        if st.session_state["reagendar_id"]:
+            agendamento_id = st.session_state["reagendar_id"]
+    
+            ag = cursor.execute("""
+                SELECT a.id, c.nome, a.data, a.hora, a.servicos
+                FROM agendamentos a
+                JOIN clientes c ON a.cliente_id = c.id
+                WHERE a.id=?
+            """, (agendamento_id,)).fetchone()
+    
+            st.subheader("🔄 Reagendar Agendamento")
+            st.write(f"Cliente: {ag[1]}")
+            st.write(f"Serviços: {ag[4]}")
+    
+            # Permite escolher nova data e hora
+            nova_data = st.date_input("Nova data", datetime.strptime(ag[2], "%Y-%m-%d").date())
+            nova_hora = st.text_input("Nova hora", ag[3])
+    
+            if st.button("Confirmar Reagendamento"):
+                cursor.execute("""
+                    UPDATE agendamentos SET data=?, hora=?, status='Reagendado'
+                    WHERE id=?
+                """, (nova_data.strftime("%Y-%m-%d"), nova_hora, agendamento_id))
+                conn.commit()
+                st.success("Agendamento reagendado com sucesso!")
+                st.session_state["reagendar_id"] = None
+                st.rerun()
+    
+            if st.button("Cancelar"):
+                st.session_state["reagendar_id"] = None
+                st.rerun()
+    
+            st.stop()
+    
+        # Modo cancelar
+        if st.session_state["cancelar_id"]:
+            cancelar_id = st.session_state["cancelar_id"]
+    
+            ag = cursor.execute("""
+                SELECT a.id, c.nome, a.data, a.hora, a.servicos
+                FROM agendamentos a
+                JOIN clientes c ON a.cliente_id = c.id
+                WHERE a.id=?
+            """, (cancelar_id,)).fetchone()
+    
+            st.subheader("❌ Cancelar Agendamento")
+            st.write(f"Cliente: {ag[1]}")
+            st.write(f"Data: {formatar_data_br(ag[2])}")
+            st.write(f"Hora: {ag[3]}")
+            st.write(f"Serviços: {ag[4]}")
+    
+            if st.button("Confirmar Cancelamento"):
+                cursor.execute("""
+                    UPDATE agendamentos SET status='Cancelado'
+                    WHERE id=?
+                """, (cancelar_id,))
+                conn.commit()
+                st.success("Agendamento cancelado com sucesso!")
+                st.session_state["cancelar_id"] = None
+                st.rerun()
+    
+            if st.button("Voltar"):
+                st.session_state["cancelar_id"] = None
+                st.rerun()
+    
+            st.stop()
+    
+        # Interface principal do Agendamento
         cliente_selecionado = st.selectbox("Selecione o Cliente", [""] + list(clientes_dict.keys()))
         data_agendamento = st.date_input("Data do Agendamento", date.today())
         hora_agendamento = st.text_input("Hora (ex: 14:30)")
         servicos = cursor.execute("SELECT id, nome FROM servicos").fetchall()
         servicos_dict = {s[1]: s[0] for s in servicos}
         servicos_selecionados = st.multiselect("Selecione os Serviços", list(servicos_dict.keys()))
-
+    
         if st.button("Salvar Agendamento"):
             if cliente_selecionado == "":
                 st.error("Selecione um cliente.")
@@ -553,12 +628,12 @@ else:
                 """, (id_cliente, data_str, hora_agendamento, servicos_str))
                 conn.commit()
                 st.success("Agendamento salvo!")
-
+    
         st.markdown("---")
         st.subheader("📋 Lista de Agendamentos")
         data_filtro = st.date_input("Filtrar agendamentos a partir de", date.today())
         data_filtro_str = data_filtro.strftime("%Y-%m-%d")
-
+    
         agendamentos = cursor.execute("""
             SELECT a.id, c.nome, a.data, a.hora, a.servicos, a.status
             FROM agendamentos a
@@ -566,7 +641,7 @@ else:
             WHERE a.data >= ?
             ORDER BY a.data, a.hora
         """, (data_filtro_str,)).fetchall()
-
+    
         if agendamentos:
             for ag in agendamentos:
                 col1, col2, col3, col4, col5, col6 = st.columns([2,3,2,2,3,3])
@@ -584,11 +659,9 @@ else:
                     if ag[5] == "Agendado":
                         if st.button(f"Reagendar {ag[0]}"):
                             st.session_state["reagendar_id"] = ag[0]
-                            st.session_state["menu"] = "Reagendar"
-                            st.rerun()
+                            st.experimental_rerun()
                         if st.button(f"Cancelar {ag[0]}"):
                             st.session_state["cancelar_id"] = ag[0]
-                            st.session_state["menu"] = "Cancelar Agendamento"
                             st.rerun()
         else:
             st.info("Nenhum agendamento encontrado a partir da data selecionada.")
