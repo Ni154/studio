@@ -287,26 +287,47 @@ else:
         ax.set_title("Resumo de Vendas")
         st.pyplot(fig)
 
-    # --- MENU DESPESAS ---
-    elif menu == "Despesas":
-        st.subheader("📉 Registro de Despesas")
-        with st.form("form_despesa", clear_on_submit=True):
-            data_desp = st.date_input("Data da Despesa", date.today(), format="DD/MM/YYYY")
-            descricao = st.text_input("Descrição")
-            valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-            if st.form_submit_button("Salvar Despesa"):
-                cursor.execute("INSERT INTO despesas (data, descricao, valor) VALUES (?, ?, ?)",
-                               (data_desp.strftime("%Y-%m-%d"), descricao, valor))
-                conn.commit()
-                st.success("Despesa registrada!")
+   # --- MENU DESPESAS ---
+elif menu == "Despesas":
+    st.subheader("📉 Registro de Despesas")
 
-        despesas = cursor.execute("SELECT data, descricao, valor FROM despesas ORDER BY data DESC").fetchall()
-        if despesas:
-            df_despesas = pd.DataFrame(despesas, columns=["Data", "Descrição", "Valor"])
-            df_despesas["Data"] = df_despesas["Data"].apply(formatar_data_br)
-            st.dataframe(df_despesas)
-        else:
-            st.info("Nenhuma despesa registrada.")
+    # Formulário para cadastrar nova despesa
+    with st.form("form_despesa", clear_on_submit=True):
+        data_desp = st.date_input("Data da Despesa", date.today(), format="DD/MM/YYYY")
+        descricao = st.text_input("Descrição")
+        valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
+        if st.form_submit_button("Salvar Despesa"):
+            cursor.execute(
+                "INSERT INTO despesas (data, descricao, valor) VALUES (?, ?, ?)",
+                (data_desp.strftime("%Y-%m-%d"), descricao, valor)
+            )
+            conn.commit()
+            st.success("Despesa registrada!")
+            st.experimental_rerun()
+
+    # Consulta as despesas com o id para exclusão
+    despesas = cursor.execute("SELECT id, data, descricao, valor FROM despesas ORDER BY data DESC").fetchall()
+
+    if despesas:
+        # Cria dataframe para exibição
+        df_despesas = pd.DataFrame(despesas, columns=["ID", "Data", "Descrição", "Valor"])
+        df_despesas["Data"] = df_despesas["Data"].apply(formatar_data_br)
+
+        # Exibe tabela com botão de excluir por linha
+        for index, row in df_despesas.iterrows():
+            col1, col2, col3, col4, col5 = st.columns([1, 2, 4, 2, 1])
+            col1.write(row["ID"])
+            col2.write(row["Data"])
+            col3.write(row["Descrição"])
+            col4.write(f"R$ {row['Valor']:.2f}")
+            if col5.button("❌", key=f"del_{row['ID']}"):
+                cursor.execute("DELETE FROM despesas WHERE id = ?", (row["ID"],))
+                conn.commit()
+                st.success(f"Despesa ID {row['ID']} excluída!")
+                st.experimental_rerun()
+    else:
+        st.info("Nenhuma despesa registrada.")
+
 
     # --- MENU CADASTRO CLIENTE ---
     elif menu == "Cadastro Cliente":
