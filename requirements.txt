@@ -4,3 +4,4 @@ streamlit-drawable-canvas
 matplotlib
 pandas
 pillow
+supabase
