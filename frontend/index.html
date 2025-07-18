@@ -1,1 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <title>Controle de Despesas</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <h1>Controle de Despesas</h1>
+
+    <form id="formDespesa">
+        <input type="number" id="valor" placeholder="Valor" step="0.01" required />
+        <input type="text" id="categoria" placeholder="Categoria" required />
+        <input type="text" id="descricao" placeholder="Descrição" />
+        <button type="submit">Adicionar Despesa</button>
+    </form>
+
+    <h2>Lista de Despesas</h2>
+    <table id="tabelaDespesas" border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Valor</th>
+                <th>Categoria</th>
+                <th>Descrição</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script src="script.js"></script>
+</body>
+</html>
 
