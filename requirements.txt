@@ -1,8 +1,8 @@
-streamlit==1.24.1
-streamlit-calendar==0.0.7
-streamlit-drawable-canvas==0.10.0
-matplotlib==3.8.0
-pandas==2.0.3
-pillow==10.0.0
-supabase-py==1.2.2
-fpdf==1.7.2
+streamlit
+streamlit-calendar
+streamlit-drawable-canvas
+matplotlib
+pandas
+pillow<10
+supabase
+fpdf
