@@ -1,1 +1,41 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 0 15px;
+    background-color: #f0f0f0;
+}
+
+h1, h2 {
+    text-align: center;
+}
+
+form {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+input {
+    padding: 5px;
+    font-size: 1rem;
+}
+
+button {
+    padding: 5px 10px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+    background-color: #fff;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 8px;
+    text-align: center;
+}
 
