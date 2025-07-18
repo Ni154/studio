@@ -1,8 +1,0 @@
-streamlit
-streamlit-calendar
-streamlit-drawable-canvas
-matplotlib
-pandas
-pillow
-supabase-py
-rich
