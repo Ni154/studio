@@ -1,7 +1,10 @@
-from supabase import create_client
-import os
+import psycopg2
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://zgpfvrwsjsbsvevflypk.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_secret_VpH-6yfypCG-7cUS6ZnQgQ_hQgPxLdJ")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+def get_connection():
+    return psycopg2.connect(
+        host="postgres.railway.internal",
+        dbname="railway",
+        user="postgres",
+        password="dhuudOCvDKVgQokLiWCWtpYIMDFMiAql",
+        port=5432
+    )
