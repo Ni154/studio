@@ -1,137 +1,126 @@
 import streamlit as st
-from supabase import Client
-from datetime import datetime
-from utils.pdf_generator import gerar_pdf_cliente  # Função para criar PDF (deve existir em utils/pdf_generator.py)
-from utils.form_helpers import limpar_formulario    # Função para limpar formulário
+from datetime import date
+from utils.pdf_generator import gerar_pdf_cliente
+from utils.form_helpers import limpar_formulario_cliente
+from config.supabase_client import supabase
 
-def listar_clientes(supabase: Client):
-    response = supabase.table("clientes").select("*").order("nome", ascending=True).execute()
+def carregar_clientes():
+    response = supabase.table("clientes").select("*").execute()
     if response.status_code == 200:
         return response.data
     else:
         st.error("Erro ao carregar clientes")
         return []
 
-def cadastrar_cliente(supabase: Client, dados: dict):
-    dados['created_at'] = datetime.utcnow().isoformat()
-    response = supabase.table("clientes").insert(dados).execute()
-    if response.status_code == 201:
-        return response.data[0]  # Retorna cliente cadastrado
+def salvar_cliente(dados_cliente):
+    # Salva ou atualiza cliente no supabase
+    if "id" in dados_cliente and dados_cliente["id"]:
+        # Atualizar cliente existente
+        response = supabase.table("clientes").update(dados_cliente).eq("id", dados_cliente["id"]).execute()
     else:
-        st.error("Erro ao cadastrar cliente")
-        return None
-
-def atualizar_cliente(supabase: Client, cliente_id: int, dados: dict):
-    dados['updated_at'] = datetime.utcnow().isoformat()
-    response = supabase.table("clientes").update(dados).eq("id", cliente_id).execute()
-    if response.status_code == 200:
-        return True
-    else:
-        st.error("Erro ao atualizar cliente")
+        # Inserir cliente novo
+        response = supabase.table("clientes").insert(dados_cliente).execute()
+    if response.status_code not in (200, 201):
+        st.error("Erro ao salvar cliente")
         return False
+    return True
 
-def excluir_cliente(supabase: Client, cliente_id: int):
+def excluir_cliente(cliente_id):
     response = supabase.table("clientes").delete().eq("id", cliente_id).execute()
-    if response.status_code == 200:
-        return True
-    else:
+    if response.status_code not in (200, 204):
         st.error("Erro ao excluir cliente")
         return False
+    return True
 
-def carregar_cliente(supabase: Client, cliente_id: int):
-    response = supabase.table("clientes").select("*").eq("id", cliente_id).single().execute()
-    if response.status_code == 200:
-        return response.data
-    else:
-        st.error("Erro ao carregar cliente")
-        return None
+def cadastro_clientes():
+    st.subheader("👤 Cadastro de Clientes")
 
-def formulario_cadastro_cliente():
-    with st.form("form_cliente", clear_on_submit=False):
-        nome = st.text_input("Nome")
-        telefone = st.text_input("Telefone")
-        email = st.text_input("Email")
-        endereco = st.text_area("Endereço")
+    # Estado para edição
+    if "cliente_editando" not in st.session_state:
+        st.session_state.cliente_editando = None
 
-        st.markdown("### Ficha de Anamnese")
-        alergias = st.text_area("Alergias")
-        medicacoes = st.text_area("Medicações")
-        doencas_cronicas = st.text_area("Doenças Crônicas")
-        outras_informacoes = st.text_area("Outras Informações")
+    clientes = carregar_clientes()
+    clientes_dict = {c["nome"]: c for c in clientes}
 
-        enviado = st.form_submit_button("Salvar Cliente")
-        
-        dados_cliente = {
-            "nome": nome,
-            "telefone": telefone,
-            "email": email,
-            "endereco": endereco,
-            "anamnese": {
-                "alergias": alergias,
-                "medicacoes": medicacoes,
-                "doencas_cronicas": doencas_cronicas,
-                "outras_informacoes": outras_informacoes
-            }
-        }
-        
-        return enviado, dados_cliente
+    col1, col2 = st.columns([2,3])
 
-def cadastro_cliente_interface(supabase: Client):
-    st.subheader("Cadastro de Clientes")
-    
-    # Carregar clientes para edição ou exclusão
-    clientes = listar_clientes(supabase)
-    clientes_dict = {c["nome"]: c["id"] for c in clientes}
-    
-    cliente_selecionado = st.selectbox("Selecionar cliente para editar ou excluir", [""] + list(clientes_dict.keys()))
-    
-    if cliente_selecionado:
-        cliente_id = clientes_dict[cliente_selecionado]
-        dados_atual = carregar_cliente(supabase, cliente_id)
-        if dados_atual:
-            with st.form("form_editar_cliente", clear_on_submit=False):
-                nome = st.text_input("Nome", value=dados_atual["nome"])
-                telefone = st.text_input("Telefone", value=dados_atual.get("telefone", ""))
-                email = st.text_input("Email", value=dados_atual.get("email", ""))
-                endereco = st.text_area("Endereço", value=dados_atual.get("endereco", ""))
-                
-                anamnese = dados_atual.get("anamnese", {})
-                alergias = st.text_area("Alergias", value=anamnese.get("alergias", ""))
-                medicacoes = st.text_area("Medicações", value=anamnese.get("medicacoes", ""))
-                doencas_cronicas = st.text_area("Doenças Crônicas", value=anamnese.get("doencas_cronicas", ""))
-                outras_informacoes = st.text_area("Outras Informações", value=anamnese.get("outras_informacoes", ""))
-                
-                atualizar = st.form_submit_button("Atualizar Cliente")
-                excluir = st.form_submit_button("Excluir Cliente")
-                
-                if atualizar:
-                    dados_atualizar = {
-                        "nome": nome,
-                        "telefone": telefone,
-                        "email": email,
-                        "endereco": endereco,
-                        "anamnese": {
-                            "alergias": alergias,
-                            "medicacoes": medicacoes,
-                            "doencas_cronicas": doencas_cronicas,
-                            "outras_informacoes": outras_informacoes
-                        }
+    with col1:
+        with st.form("form_cliente", clear_on_submit=False):
+            if st.session_state.cliente_editando:
+                cliente = st.session_state.cliente_editando
+                nome_inicial = cliente.get("nome", "")
+                telefone_inicial = cliente.get("telefone", "")
+                email_inicial = cliente.get("email", "")
+                nascimento_inicial = cliente.get("nascimento", "")
+                # Anamnese
+                sintomas_inicial = cliente.get("sintomas", "")
+                alergias_inicial = cliente.get("alergias", "")
+                medicacao_inicial = cliente.get("medicacao", "")
+                observacoes_inicial = cliente.get("observacoes", "")
+            else:
+                nome_inicial = ""
+                telefone_inicial = ""
+                email_inicial = ""
+                nascimento_inicial = ""
+                sintomas_inicial = ""
+                alergias_inicial = ""
+                medicacao_inicial = ""
+                observacoes_inicial = ""
+
+            nome = st.text_input("Nome completo", value=nome_inicial)
+            telefone = st.text_input("Telefone", value=telefone_inicial)
+            email = st.text_input("Email", value=email_inicial)
+            nascimento = st.date_input("Data de Nascimento", value=date.fromisoformat(nascimento_inicial) if nascimento_inicial else date.today())
+
+            st.markdown("### 📝 Ficha de Anamnese")
+            sintomas = st.text_area("Sintomas", value=sintomas_inicial)
+            alergias = st.text_area("Alergias", value=alergias_inicial)
+            medicacao = st.text_area("Medicação em uso", value=medicacao_inicial)
+            observacoes = st.text_area("Observações adicionais", value=observacoes_inicial)
+
+            submitted = st.form_submit_button("Salvar Cliente")
+
+            if submitted:
+                if not nome.strip():
+                    st.error("O nome é obrigatório.")
+                else:
+                    dados = {
+                        "nome": nome.strip(),
+                        "telefone": telefone.strip(),
+                        "email": email.strip(),
+                        "nascimento": nascimento.isoformat(),
+                        "sintomas": sintomas.strip(),
+                        "alergias": alergias.strip(),
+                        "medicacao": medicacao.strip(),
+                        "observacoes": observacoes.strip()
                     }
-                    if atualizar_cliente(supabase, cliente_id, dados_atualizar):
-                        st.success("Cliente atualizado com sucesso!")
+
+                    if st.session_state.cliente_editando:
+                        dados["id"] = st.session_state.cliente_editando.get("id")
+
+                    sucesso = salvar_cliente(dados)
+                    if sucesso:
+                        st.success("Cliente salvo com sucesso!")
+                        gerar_pdf_cliente(dados)  # Gera o PDF ao salvar
+                        st.session_state.cliente_editando = None
+                        limpar_formulario_cliente()  # Limpa o formulário após salvar
                         st.experimental_rerun()
-                
-                if excluir:
-                    if excluir_cliente(supabase, cliente_id):
-                        st.success("Cliente excluído com sucesso!")
+
+    with col2:
+        st.write("### Clientes Cadastrados")
+        if clientes:
+            for c in clientes:
+                st.write(f"**{c['nome']}** - {c.get('telefone', '')}")
+                col_edit, col_del = st.columns([1,1])
+                with col_edit:
+                    if st.button(f"✏️ Editar {c['nome']}", key=f"edit_{c['id']}"):
+                        st.session_state.cliente_editando = c
                         st.experimental_rerun()
-    
-    else:
-        enviado, dados = formulario_cadastro_cliente()
-        if enviado:
-            cliente_novo = cadastrar_cliente(supabase, dados)
-            if cliente_novo:
-                st.success("Cliente cadastrado com sucesso!")
-                gerar_pdf_cliente(cliente_novo)  # Gera PDF com dados e ficha
-                limpar_formulario("form_cliente")  # Limpa o formulário para próximo cadastro
-                st.experimental_rerun()
+                with col_del:
+                    if st.button(f"❌ Excluir {c['nome']}", key=f"del_{c['id']}"):
+                        if excluir_cliente(c["id"]):
+                            st.success("Cliente excluído.")
+                            st.experimental_rerun()
+        else:
+            st.info("Nenhum cliente cadastrado.")
+
