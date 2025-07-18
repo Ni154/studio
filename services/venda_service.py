@@ -1,253 +1,177 @@
-def vendas():
-    st.title("💰 Painel de Vendas")
-    st.markdown("---")
+import streamlit as st
+from datetime import datetime
+from config.supabase_client import supabase
+from utils.formatters import formatar_data_br
 
-    opcao_venda = st.radio("Escolha o tipo de venda:", ["Venda por Agendamento", "Nova Venda"])
+def carregar_agendamentos_para_venda():
+    response = supabase.table("agendamentos").select("*").eq("status", "Agendado").order("data", ascending=True).order("hora", ascending=True).execute()
+    if response.status_code == 200:
+        return response.data
+    else:
+        st.error("Erro ao carregar agendamentos.")
+        return []
 
-    # Carregar dados do supabase
-    clientes = supabase.table("clientes").select("id,nome").execute().data
-    clientes_dict = {c["nome"]: c["id"] for c in clientes} if clientes else {}
+def carregar_vendas():
+    response = supabase.table("vendas").select("*").order("data", desc=True).execute()
+    if response.status_code == 200:
+        return response.data
+    else:
+        st.error("Erro ao carregar vendas.")
+        return []
 
-    produtos = supabase.table("produtos").select("id,nome,quantidade,preco_venda").gt("quantidade", 0).execute().data
-    produtos_dict = {p["nome"]: p for p in produtos} if produtos else {}
+def salvar_venda(venda):
+    if "id" in venda and venda["id"]:
+        response = supabase.table("vendas").update(venda).eq("id", venda["id"]).execute()
+    else:
+        response = supabase.table("vendas").insert(venda).execute()
+    if response.status_code not in (200, 201):
+        st.error("Erro ao salvar venda.")
+        return False
+    return True
 
-    servicos = supabase.table("servicos").select("id,nome,quantidade,valor").gt("quantidade", 0).execute().data
-    servicos_dict = {s["nome"]: s for s in servicos} if servicos else {}
+def cancelar_venda(venda_id):
+    response = supabase.table("vendas").update({"cancelada": True}).eq("id", venda_id).execute()
+    if response.status_code not in (200, 204):
+        st.error("Erro ao cancelar venda.")
+        return False
+    return True
 
-    if opcao_venda == "Venda por Agendamento":
-        # Buscar agendamentos com status 'Agendado'
-        agendamentos = supabase.table("agendamentos")\
-            .select("id,cliente_id,data,hora,servicos,status")\
-            .eq("status", "Agendado")\
-            .order("data", ascending=True).order("hora", ascending=True).execute().data
+def venda_por_agendamento(agendamento):
+    st.write(f"### Venda por Agendamento: {formatar_data_br(agendamento['data'])} - {agendamento['cliente_nome']}")
 
-        if not agendamentos:
-            st.info("Nenhum agendamento disponível para venda.")
-            return
+    produtos = st.session_state.get("venda_produtos", [])
+    servicos = agendamento.get("servicos", "").split(", ")
 
-        # Montar dicionário para selectbox
-        agend_dict = {
-            f"{formatar_data_br(a['data'])} {a['hora']} - {clientes_dict.get(a['cliente_id'], 'Cliente Desconhecido')}": a
-            for a in agendamentos
+    # Seleção da forma de pagamento
+    forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix", "Cheque", "Outros"], key="fp_agendamento")
+
+    # Adicionar produtos (simulação: aqui só permite texto livre)
+    novo_produto = st.text_input("Adicionar produto (nome)", key="novo_produto_agg")
+    preco_produto = st.number_input("Preço do produto", min_value=0.0, format="%.2f", key="preco_produto_agg")
+    if st.button("Adicionar produto", key="btn_add_prod_agg"):
+        if novo_produto and preco_produto > 0:
+            produtos.append({"nome": novo_produto, "preco": preco_produto})
+            st.session_state["venda_produtos"] = produtos
+            st.experimental_rerun()
+
+    total_produtos = sum(p["preco"] for p in produtos)
+    total_servicos = 0.0  # ou extrair preço dos serviços se tiver no banco
+
+    st.write("### Produtos adicionados:")
+    for i, p in enumerate(produtos):
+        col1, col2, col3 = st.columns([6, 2, 1])
+        col1.write(p["nome"])
+        col2.write(f"R$ {p['preco']:.2f}")
+        if col3.button("❌", key=f"remover_produto_{i}_agg"):
+            produtos.pop(i)
+            st.session_state["venda_produtos"] = produtos
+            st.experimental_rerun()
+
+    total_geral = total_produtos + total_servicos
+    st.write(f"**Total da venda: R$ {total_geral:.2f}**")
+
+    if st.button("Finalizar venda por agendamento", key="finalizar_agg"):
+        venda = {
+            "cliente_id": agendamento["cliente_id"],
+            "cliente_nome": agendamento["cliente_nome"],
+            "data": datetime.now().strftime("%Y-%m-%d"),
+            "produtos": produtos,
+            "servicos": servicos,
+            "total": total_geral,
+            "cancelada": False,
+            "agendamento_id": agendamento["id"],
+            "forma_pagamento": forma_pagamento
         }
+        sucesso = salvar_venda(venda)
+        if sucesso:
+            # Atualiza status do agendamento para "Finalizado"
+            supabase.table("agendamentos").update({"status": "Finalizado"}).eq("id", agendamento["id"]).execute()
+            st.success("Venda por agendamento finalizada com sucesso!")
+            st.session_state.pop("venda_produtos", None)
+            st.experimental_rerun()
 
-        agendamento_selecionado = st.selectbox("Selecione o agendamento", [""] + list(agend_dict.keys()), key="agendamento")
+def nova_venda(clientes):
+    st.subheader("Nova Venda")
 
-        if agendamento_selecionado:
-            ag = agend_dict[agendamento_selecionado]
-            cliente_id = ag["cliente_id"]
+    clientes_dict = {c['nome']: c for c in clientes}
+    cliente_selecionado = st.selectbox("Cliente", [""] + list(clientes_dict.keys()), key="sel_cliente_nova")
 
-            # Exibir dados do agendamento
-            st.markdown(f"""
-                **Cliente:** {list(clientes_dict.keys())[list(clientes_dict.values()).index(cliente_id)]}  
-                **Data:** {formatar_data_br(ag['data'])}  
-                **Hora:** {ag['hora']}  
-                **Serviços Agendados:** {ag['servicos']}
-            """)
+    produtos = st.session_state.get("venda_produtos", [])
 
-            # Itens iniciais da prevenda - os serviços agendados
-            servicos_agendados = [s.strip() for s in ag["servicos"].split(",") if s.strip()]
-            itens_venda = []
-            for serv_nome in servicos_agendados:
-                if serv_nome in servicos_dict:
-                    s = servicos_dict[serv_nome]
-                    itens_venda.append({
-                        "tipo": "servico",
-                        "id": s["id"],
-                        "nome": serv_nome,
-                        "quantidade": 1,
-                        "preco": s["valor"]
-                    })
+    # Seleção da forma de pagamento
+    forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix", "Cheque", "Outros"], key="fp_nova")
 
-            # Adicionar produtos e serviços extras
-            st.markdown("---")
-            st.markdown("### ➕ Adicionar Itens Extras")
+    novo_produto = st.text_input("Adicionar produto (nome)", key="novo_produto_nova")
+    preco_produto = st.number_input("Preço do produto", min_value=0.0, format="%.2f", key="preco_produto_nova")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                produtos_selecionados = st.multiselect("Produtos", list(produtos_dict.keys()), key="produtos_ag")
-                for p in produtos_selecionados:
-                    if not any(item["nome"] == p for item in itens_venda):
-                        pr = produtos_dict[p]
-                        itens_venda.append({
-                            "tipo": "produto",
-                            "id": pr["id"],
-                            "nome": p,
-                            "quantidade": 1,
-                            "preco": pr["preco_venda"]
-                        })
-            with col2:
-                servicos_selecionados = st.multiselect(
-                    "Serviços", 
-                    [s for s in servicos_dict.keys() if s not in servicos_agendados], 
-                    key="servicos_ag")
-                for s_nome in servicos_selecionados:
-                    if not any(item["nome"] == s_nome for item in itens_venda):
-                        sv = servicos_dict[s_nome]
-                        itens_venda.append({
-                            "tipo": "servico",
-                            "id": sv["id"],
-                            "nome": s_nome,
-                            "quantidade": 1,
-                            "preco": sv["valor"]
-                        })
+    if st.button("Adicionar produto nova venda", key="btn_add_prod_nova"):
+        if novo_produto and preco_produto > 0:
+            produtos.append({"nome": novo_produto, "preco": preco_produto})
+            st.session_state["venda_produtos"] = produtos
+            st.experimental_rerun()
 
-            # Exibir itens com opção de alterar quantidade
-            st.markdown("---")
-            st.markdown("### 🧾 Itens da Venda")
-            total = 0
-            for i, item in enumerate(itens_venda):
-                qtd = st.number_input(f"{item['nome']} ({item['tipo']})", min_value=1, value=item["quantidade"], step=1, key=f"qtd_ag_{i}")
-                itens_venda[i]["quantidade"] = qtd
-                total += qtd * item["preco"]
+    st.write("### Produtos adicionados:")
+    for i, p in enumerate(produtos):
+        col1, col2, col3 = st.columns([6, 2, 1])
+        col1.write(p["nome"])
+        col2.write(f"R$ {p['preco']:.2f}")
+        if col3.button("❌", key=f"remover_produto_nova_{i}"):
+            produtos.pop(i)
+            st.session_state["venda_produtos"] = produtos
+            st.experimental_rerun()
 
-            forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"], key="fp_ag")
+    total_geral = sum(p["preco"] for p in produtos)
+    st.write(f"**Total da venda: R$ {total_geral:.2f}**")
 
-            st.success(f"Total: R$ {total:.2f}")
-
-            if st.button("✅ Finalizar Venda", key="finalizar_ag"):
-                if total > 0:
-                    data_venda = date.today().strftime("%Y-%m-%d")
-
-                    # Inserir venda
-                    res = supabase.table("vendas").insert({
-                        "cliente_id": cliente_id,
-                        "data": data_venda,
-                        "total": total,
-                        "forma_pagamento": forma_pagamento,
-                        "cancelada": False
-                    }).execute()
-                    venda_id = res.data[0]["id"]
-
-                    # Inserir itens da venda
-                    for item in itens_venda:
-                        supabase.table("venda_itens").insert({
-                            "venda_id": venda_id,
-                            "tipo": item["tipo"],
-                            "item_id": item["id"],
-                            "quantidade": item["quantidade"],
-                            "preco": item["preco"]
-                        }).execute()
-
-                        # Atualizar estoque para produtos
-                        if item["tipo"] == "produto":
-                            supabase.table("produtos").update({
-                                "quantidade": supabase.table("produtos").select("quantidade").eq("id", item["id"]).execute().data[0]["quantidade"] - item["quantidade"]
-                            }).eq("id", item["id"]).execute()
-
-                    # Atualizar status do agendamento para 'Finalizado'
-                    supabase.table("agendamentos").update({"status": "Finalizado"}).eq("id", ag["id"]).execute()
-
-                    st.success("🎉 Venda por agendamento realizada com sucesso!")
-                    st.experimental_rerun()
-
-    else:  # Nova Venda
-        cliente_selecionado = st.selectbox("Selecione o cliente", [""] + list(clientes_dict.keys()), key="cliente_nv")
-        if cliente_selecionado:
-            cliente_id = clientes_dict[cliente_selecionado]
-
-            produtos_selecionados = st.multiselect("Produtos", list(produtos_dict.keys()), key="produtos_nv")
-            servicos_selecionados = st.multiselect("Serviços", list(servicos_dict.keys()), key="servicos_nv")
-
-            itens_venda = []
-            for p in produtos_selecionados:
-                pr = produtos_dict[p]
-                itens_venda.append({
-                    "tipo": "produto",
-                    "id": pr["id"],
-                    "nome": p,
-                    "quantidade": 1,
-                    "preco": pr["preco_venda"]
-                })
-            for s in servicos_selecionados:
-                sv = servicos_dict[s]
-                itens_venda.append({
-                    "tipo": "servico",
-                    "id": sv["id"],
-                    "nome": s,
-                    "quantidade": 1,
-                    "preco": sv["valor"]
-                })
-
-            st.markdown("---")
-            st.markdown("### 🧾 Itens da Venda")
-            total = 0
-            for i, item in enumerate(itens_venda):
-                qtd = st.number_input(f"{item['nome']} ({item['tipo']})", min_value=1, value=item["quantidade"], step=1, key=f"qtd_nv_{i}")
-                itens_venda[i]["quantidade"] = qtd
-                total += qtd * item["preco"]
-
-            forma_pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Cartão", "Pix"], key="fp_nv")
-
-            st.success(f"Total: R$ {total:.2f}")
-
-            if st.button("✅ Finalizar Venda", key="finalizar_nv"):
-                if total > 0:
-                    data_venda = date.today().strftime("%Y-%m-%d")
-                    res = supabase.table("vendas").insert({
-                        "cliente_id": cliente_id,
-                        "data": data_venda,
-                        "total": total,
-                        "forma_pagamento": forma_pagamento,
-                        "cancelada": False
-                    }).execute()
-                    venda_id = res.data[0]["id"]
-
-                    for item in itens_venda:
-                        supabase.table("venda_itens").insert({
-                            "venda_id": venda_id,
-                            "tipo": item["tipo"],
-                            "item_id": item["id"],
-                            "quantidade": item["quantidade"],
-                            "preco": item["preco"]
-                        }).execute()
-
-                        if item["tipo"] == "produto":
-                            atual_qtd = supabase.table("produtos").select("quantidade").eq("id", item["id"]).execute().data[0]["quantidade"]
-                            supabase.table("produtos").update({
-                                "quantidade": atual_qtd - item["quantidade"]
-                            }).eq("id", item["id"]).execute()
-
-                    st.success("🎉 Venda realizada com sucesso!")
-                    st.experimental_rerun()
+    if st.button("Finalizar nova venda", key="finalizar_nova"):
+        if cliente_selecionado == "":
+            st.error("Selecione um cliente.")
+        elif not produtos:
+            st.error("Adicione pelo menos um produto.")
         else:
-            st.warning("Selecione um cliente para continuar.")
+            cliente_obj = clientes_dict[cliente_selecionado]
+            venda = {
+                "cliente_id": cliente_obj["id"],
+                "cliente_nome": cliente_selecionado,
+                "data": datetime.now().strftime("%Y-%m-%d"),
+                "produtos": produtos,
+                "servicos": [],
+                "total": total_geral,
+                "cancelada": False,
+                "agendamento_id": None,
+                "forma_pagamento": forma_pagamento
+            }
+            sucesso = salvar_venda(venda)
+            if sucesso:
+                st.success("Nova venda finalizada com sucesso!")
+                st.session_state.pop("venda_produtos", None)
+                st.experimental_rerun()
 
-    # --- Histórico de Vendas ---
-    st.markdown("---")
+def historico_vendas():
     st.subheader("📋 Histórico de Vendas")
 
-    vendas = supabase.table("vendas")\
-        .select("id, cliente_id, data, total, forma_pagamento, cancelada")\
-        .order("data", descending=True)\
-        .execute().data
+    vendas = carregar_vendas()
 
     if not vendas:
-        st.info("Nenhuma venda registrada.")
+        st.info("Nenhuma venda cadastrada.")
         return
 
-    # Obter nomes dos clientes para exibir
-    clientes_info = supabase.table("clientes").select("id,nome").execute().data
-    clientes_map = {c["id"]: c["nome"] for c in clientes_info}
-
-    for v in vendas:
-        nome_cliente = clientes_map.get(v["cliente_id"], "Cliente Desconhecido")
-        col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 2, 1])
+    for venda in vendas:
+        col1, col2, col3, col4, col5, col6 = st.columns([2, 4, 3, 2, 2, 1])
         with col1:
-            st.write(nome_cliente)
+            st.write(formatar_data_br(venda["data"]))
         with col2:
-            st.write(formatar_data_br(v["data"]))
+            st.write(venda["cliente_nome"])
         with col3:
-            st.write(f"R$ {v['total']:.2f}")
+            st.write(f"R$ {venda['total']:.2f}")
         with col4:
-            st.write(v["forma_pagamento"])
+            st.write(venda.get("forma_pagamento", "Não informado"))
         with col5:
-            if not v["cancelada"]:
-                if st.button(f"❌ Cancelar {v['id']}", key=f"cancelar_{v['id']}"):
-                    # Atualizar venda para cancelada = True
-                    supabase.table("vendas").update({"cancelada": True}).eq("id", v["id"]).execute()
-                    st.success("Venda cancelada!")
-                    st.experimental_rerun()
-            else:
-                st.write("Cancelada")
-
+            st.write("Cancelada" if venda.get("cancelada") else "Ativa")
+        with col6:
+            if not venda.get("cancelada"):
+                if st.button(f"❌ Cancelar {venda['id']}", key=f"cancelar_{venda['id']}"):
+                    sucesso = cancelar_venda(venda["id"])
+                    if sucesso:
+                        st.success("Venda cancelada.")
+                        st.experimental_rerun()
