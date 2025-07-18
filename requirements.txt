@@ -4,5 +4,5 @@ streamlit-drawable-canvas==0.7.0
 matplotlib==3.7.1
 pandas==2.0.3
 pillow>=9.2.0,<10
-supabase==1.0.0
+supabase-py==1.0.3
 fpdf==1.7.2
